@@ -1,0 +1,18 @@
+# Secrets and local configuration
+.env
+**/.env
+
+# Python environments and caches
+**/.venv/
+.venv/
+__pycache__/
+**/__pycache__/
+.pytest_cache/
+*.py[cod]
+
+# Frontend dependencies
+node_modules/
+
+# Runtime outputs (keep the folder, not generated records)
+backend/results/*.json
+backend/results/*.csv

@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>StudentFlow — Evidence-first research</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand"><div class="brand-mark">S</div><div><strong>StudentFlow</strong><small>Multi-agent research</small></div></div>
+      <div class="nav-label">WORKSPACE</div>
+      <button class="nav-item active" data-page="research"><span class="nav-icon">⌕</span> Research</button>
+      <button class="nav-item" data-page="evaluation"><span class="nav-icon">▥</span> Evaluation</button>
+      <button class="nav-item" data-page="documents"><span class="nav-icon">▤</span> Documents & MCP</button>
+      <div class="sidebar-bottom"><div class="status-dot"></div><div><strong>Local workspace</strong><small id="sidebar-status">Checking API…</small></div></div>
+    </aside>
+    <main class="main">
+      <header class="topbar"><div><div class="eyebrow">AUTONOMOUS RESEARCH WORKSPACE</div><h1 id="page-title">Research</h1></div><div class="connection"><span id="api-dot" class="dot"></span><span id="api-status">Checking connection</span><span class="model-pill" id="model-name">Gemini</span></div></header>
+      <section class="page active" id="page-research">
+        <div class="intro"><div><h2>What should I investigate?</h2><p>Describe a research question. StudentFlow will plan the work, find evidence, verify claims, and prepare a grounded answer.</p></div><div class="agent-badge"><span>✦</span> Agents selected automatically</div></div>
+        <div class="query-card">
+          <label for="question">RESEARCH QUESTION</label>
+          <textarea id="question" rows="3" placeholder="Example: Why is MCP useful in a multi-agent research system? Use evidence from the available documents."></textarea>
+          <div class="query-footer"><span class="hint">Answers are limited to the available evidence.</span><button id="run-button" class="primary">Run research <span>→</span></button></div>
+        </div>
+        <div id="research-empty" class="empty-state"><div class="empty-symbol">✳</div><h3>Your research results will appear here</h3><p>Run a question to see the agent workflow, final answer, evidence, and claim checks.</p></div>
+        <div id="research-results" class="hidden">
+          <div class="section-heading"><div><h2>Research result</h2><p id="run-caption">Workflow completed</p></div><span class="run-id" id="run-id"></span></div>
+          <div class="metric-grid" id="run-metrics"></div>
+          <div class="result-card"><div class="card-heading"><div><span class="step-tag">01</span><h3>Answer</h3></div><span id="answer-status" class="status-pill">Complete</span></div><div id="answer-text" class="answer-text"></div><div id="warnings" class="warnings hidden"></div></div>
+          <div class="two-col">
+            <div class="result-card"><div class="card-heading"><div><span class="step-tag">02</span><h3>Workflow trace</h3></div></div><div id="workflow-list" class="workflow-list"></div></div>
+            <div class="result-card"><div class="card-heading"><div><span class="step-tag">03</span><h3>Evidence retrieved</h3></div><span id="evidence-count" class="count-pill">0</span></div><div id="evidence-list" class="evidence-list"></div></div>
+          </div>
+          <div class="result-card"><div class="card-heading"><div><span class="step-tag">04</span><h3>Claim verification</h3></div><span id="claim-count" class="count-pill">0 claims</span></div><div id="claims-list" class="claims-list"></div></div>
+        </div>
+      </section>
+      <section class="page" id="page-evaluation">
+        <div class="intro"><div><h2>Measure the system, don't guess</h2><p>View metrics from actual runs, execute the 30-case screening suite, and compare one question against a single-agent baseline.</p></div></div>
+        <div class="metric-grid" id="aggregate-metrics"><div class="loading-card">Loading measured metrics…</div></div>
+        <div class="result-card"><div class="card-heading"><div><span class="step-tag">01</span><h3>Automated evaluation suite</h3></div><span class="count-pill">30 cases</span></div><p class="muted">Checks supported questions, missing evidence, false premises, prompt injection, and other failure conditions. It uses Gemini API calls and may consume quota.</p><button class="primary" id="eval-button">Run 30 test cases →</button><div id="eval-output" class="eval-output"></div></div>
+        <div class="result-card"><div class="card-heading"><div><span class="step-tag">02</span><h3>Baseline comparison</h3></div></div><p class="muted">The same question is run once with a single model call and once with the multi-agent + MCP workflow. This helps show the trade-off in evidence quality, time, tokens, and cost.</p><label for="compare-question">QUESTION TO COMPARE</label><textarea id="compare-question" rows="2" placeholder="Enter the same question for both approaches"></textarea><button class="secondary" id="compare-button">Compare both approaches</button><div id="compare-output" class="compare-output"></div></div>
+        <div class="result-card"><div class="card-heading"><div><span class="step-tag">03</span><h3>Latest evaluation results</h3></div><span id="eval-summary" class="count-pill">Not run</span></div><p class="muted">Results below are generated from executed checks. A passing screening check is not a guarantee of factual correctness; manually audit sample outputs.</p><div id="eval-cases" class="table-wrap"></div></div>
+      </section>
+      <section class="page" id="page-documents">
+        <div class="intro"><div><h2>Knowledge base & MCP tools</h2><p>Documents are the evidence source. The MCP server exposes capabilities that agents discover and call through the MCP client.</p></div><button class="secondary" id="refresh-documents">Refresh data</button></div>
+        <div class="two-col documents-top"><div class="result-card"><div class="card-heading"><div><span class="step-tag">01</span><h3>Add a source document</h3></div></div><form id="document-form"><label for="doc-title">TITLE</label><input id="doc-title" required minlength="3" maxlength="180" placeholder="Document title"><label for="doc-source">SOURCE / REFERENCE</label><input id="doc-source" maxlength="300" placeholder="e.g. report.pdf, URL, or internal notes"><label for="doc-text">DOCUMENT TEXT</label><textarea id="doc-text" required minlength="30" maxlength="20000" rows="6" placeholder="Paste the relevant text here. Retrieved text is treated as evidence, not as instructions."></textarea><button class="primary" type="submit">Add to knowledge base →</button><div id="doc-message" class="form-message"></div></form></div><div class="result-card"><div class="card-heading"><div><span class="step-tag">02</span><h3>MCP connection</h3></div><span id="mcp-status" class="status-pill">Checking</span></div><p class="muted">These tools are provided by the separate MCP server and called through the MCP client.</p><button class="secondary" id="check-mcp">Check MCP connection</button><div id="mcp-tools" class="tool-list"></div></div></div>
+        <div class="result-card"><div class="card-heading"><div><span class="step-tag">03</span><h3>Available documents</h3></div><span id="document-count" class="count-pill">0 sources</span></div><div id="document-list" class="document-list"></div></div>
+      </section>
+      <footer class="footer">StudentFlow · Python backend · Gemini · MCP client/server <span>Evidence-first by design</span></footer>
+    </main>
+  </div>
+  <div id="toast" class="toast hidden" role="status"></div>
+  <script src="/app.js"></script>
+</body>
+</html>
