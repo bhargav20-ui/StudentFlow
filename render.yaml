@@ -1,8 +1,9 @@
+
 services:
   - type: web
     name: studentflow
     runtime: docker
-    plan: starter
+    plan: free
     dockerfilePath: ./Dockerfile
     dockerContext: .
     healthCheckPath: /health
@@ -12,10 +13,6 @@ services:
       - key: GEMINI_MODEL
         value: gemini-2.5-flash
       - key: STUDENTFLOW_DATA_DIR
-        value: /var/data
+        value: /tmp/studentflow-data
       - key: PYTHONUNBUFFERED
         value: "1"
-    disk:
-      name: studentflow-data
-      mountPath: /var/data
-      sizeGB: 1
