@@ -67,13 +67,14 @@ async function loadMetrics() {
   } catch(e){container.innerHTML=`<div class="loading-card">Could not load metrics: ${esc(e.message)}</div>`;}
 }
 $('eval-button').addEventListener('click',async()=>{
-  const button=$('eval-button');if(!confirm('Run all 30 evaluation cases? This makes repeated Gemini API calls and may consume API quota.'))return;
-  setBusy(button,true,'Running 30 cases…');$('eval-output').textContent='Running cases. This may take a while.';
-  try{const result=await api('/evaluation/run',{method:'POST',body:'{}'});$('eval-output').innerHTML=`<div class="eval-summary-grid"><div class="mini-stat"><span>Cases passed</span><strong>${number(result.passed)} / ${number(result.total_cases)}</strong></div><div class="mini-stat"><span>Screening pass rate</span><strong>${percent(result.pass_rate)}</strong></div><div class="mini-stat"><span>Mean case latency</span><strong>${number(result.mean_latency_ms,' ms')}</strong></div></div><p class="muted">${esc(result.note||'Automated screening results are not a guarantee of correctness.')}</p>`;showToast('Evaluation suite completed.');await loadEvaluationResults();await loadMetrics();}
+  const button=$('eval-button');
+  if(!confirm('Run the 6 focused evaluation checks? This makes six Gemini API calls and may consume API quota.'))return;
+  setBusy(button,true,'Running 6 checks…');$('eval-output').textContent='Running six checks. This may take a little while.';
+  try{const result=await api('/evaluation/run',{method:'POST',body:'{}'});$('eval-output').innerHTML=`<div class="eval-summary-grid"><div class="mini-stat"><span>Checks passed</span><strong>${number(result.passed)} / ${number(result.total_cases)}</strong></div><div class="mini-stat"><span>Screening pass rate</span><strong>${percent(result.pass_rate)}</strong></div><div class="mini-stat"><span>Mean check latency</span><strong>${number(result.mean_latency_ms,' ms')}</strong></div></div><p class="muted">${esc(result.note||'Automated screening results are not a guarantee of correctness.')}</p>`;showToast('Evaluation checks completed.');await loadEvaluationResults();await loadMetrics();}
   catch(e){$('eval-output').textContent=`Evaluation failed: ${e.message}`;showToast(e.message,true);}finally{setBusy(button,false);}
 });
 async function loadEvaluationResults(){
-  try{const data=await api('/evaluation/results');if(data.status!=='completed'){$('eval-summary').textContent='Not run';$('eval-cases').innerHTML='<p class="muted">The test suite has not been run yet.</p>';return;}
+  try{const data=await api('/evaluation/results');if(data.status!=='completed'){$('eval-summary').textContent='Not run';$('eval-cases').innerHTML='<p class="muted">The focused checks have not been run yet.</p>';return;}
     $('eval-summary').textContent=`${data.passed}/${data.total_cases} passed`;
     $('eval-cases').innerHTML=`<table><thead><tr><th>Test</th><th>Category</th><th>Expected behavior</th><th>Result</th><th>Latency</th></tr></thead><tbody>${(data.results||[]).map(row=>`<tr><td>${esc(row.test_id)}</td><td>${esc(row.category)}</td><td>${esc(row.expected_behavior)}</td><td class="${row.pass?'pass':'fail'}">${row.pass?'PASS':'FAIL'}</td><td>${number(row.latency_ms,' ms')}</td></tr>`).join('')}</tbody></table>`;
   }catch(e){$('eval-cases').textContent=e.message;}
