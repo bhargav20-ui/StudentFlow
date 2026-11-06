@@ -53,7 +53,7 @@ Browser (HTML / CSS / JavaScript)
 - Plain HTML, CSS and JavaScript frontend; no frontend build step
 - JSON document corpus and run records, CSV evaluation history
 - pytest and GitHub Actions for backend validation
-- Docker and Render deployment configuration
+- Render native Python deployment configuration
 
 ## Metrics and evaluation
 
@@ -133,7 +133,7 @@ Copy backend/.env.example to backend/.env for local development.
 | STUDENTFLOW_RESULTS_PER_TASK | No | Requested search result count per subtask |
 | STUDENTFLOW_MAX_EVIDENCE_ITEMS | No | Maximum unique evidence records per run |
 
-The MCP server is launched by the backend as a local subprocess. Its dependencies are installed from backend/requirements.txt.
+The MCP server is launched by the backend as a local subprocess. Its dependencies are installed from `backend/requirements.txt`.
 
 ## Use the application
 
@@ -185,13 +185,13 @@ After a fix, rerun the failed case and relevant regression tests. Do not mark a 
 
 ## Deployment
 
-See [DEPLOY_RENDER.md](DEPLOY_RENDER.md) for Render Blueprint and Docker deployment instructions.
+See [DEPLOY_RENDER.md](DEPLOY_RENDER.md) for Render native Python deployment instructions.
 
-- The root-level Dockerfile is the Render build target.
+- Render uses its native Python runtime with `backend/` as the service root.
 - FastAPI serves both the API and frontend.
 - The MCP server runs as a local stdio subprocess in the same service.
 - Set GEMINI_API_KEY as a hosting secret and choose a model enabled for that API account.
-- Configure persistent storage for documents and run records if the deployment plan supports it; verify the active Render disk configuration before relying on persistence.
+- The free-plan configuration uses ephemeral `/tmp` storage; uploaded documents and run history can be lost on restart or redeploy. Use a supported persistent disk if durable storage is required.
 
 ## Known limitations and safety
 
