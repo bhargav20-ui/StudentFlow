@@ -18,12 +18,26 @@ RETRYABLE_STATUS_CODES = {429, 500, 502, 503, 504}
 
 
 class ModelUnavailable(RuntimeError):
-    def __init__(self, message, *, attempts=0, retry_wait_ms=0, retryable=False):
+    def __init__(
+        self, message, *, attempts=0, retry_wait_ms=0, retryable=False, status_code=None
+    ):
         super().__init__(message)
         self.attempts = attempts
         self.retries = max(0, attempts - 1)
         self.retry_wait_ms = retry_wait_ms
         self.retryable = retryable
+        self.status_code = status_code
+
+
+def is_daily_quota_error(exc):
+    """Detect exhausted daily quotas that cannot recover through short retries."""
+    message = str(exc).lower()
+    return any(token in message for token in (
+        "per day limit exceeded",
+        "daily limit exceeded",
+        "generate_content_free_tier_requests",
+        "free tier requests, limit",
+    ))
 
 
 def is_retryable_gemini_error(exc):
@@ -101,6 +115,26 @@ class GeminiService:
                 error_message = str(exc)
                 if GEMINI_API_KEY:
                     error_message = error_message.replace(GEMINI_API_KEY, "[REDACTED]")
+
+                # A daily quota cannot recover after a few seconds. Stop immediately
+                # instead of burning retries and return an actionable message.
+                if is_daily_quota_error(exc):
+                    logger.error(
+                        "Gemini daily quota exhausted | model=%s | status=%s | error=%s",
+                        self.model,
+                        status,
+                        error_message[:1000],
+                    )
+                    raise ModelUnavailable(
+                        "Gemini's daily free-tier request quota has been exhausted. "
+                        "Changing the API key to one from a project with available quota, "
+                        "enabling billing, or waiting for the quota reset is required. "
+                        "Check https://ai.dev/rate-limit for the reset and usage details.",
+                        attempts=attempt,
+                        retry_wait_ms=retry_wait_ms,
+                        retryable=False,
+                        status_code=429,
+                    ) from exc
 
                 if not is_retryable_gemini_error(exc):
                     logger.exception(
