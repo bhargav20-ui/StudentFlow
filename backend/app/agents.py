@@ -255,7 +255,10 @@ class EvaluatorAgent:
             for claim in claims
         )
 
-        cited_ids = re.findall(r"\[\s*(E\d{3})\s*\]", answer or "")
+        cited_ids = []
+        for group in re.findall(r"\[([^\]]+)\]", answer or ""):
+            if re.fullmatch(r"\s*E\d{3}(?:\s*,\s*E\d{3})*\s*", group):
+                cited_ids.extend(re.findall(r"\bE\d{3}\b", group))
         citation_validity = (
             round(
                 sum(value in valid_evidence_ids for value in cited_ids) / len(cited_ids),
