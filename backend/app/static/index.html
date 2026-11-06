@@ -27,6 +27,11 @@
         <div id="research-empty" class="empty-state"><div class="empty-symbol">✳</div><h3>Your research output will appear here</h3><p>Enter a question to generate an evidence-grounded research answer.</p></div>
         <div id="research-results" class="hidden">
           <div class="section-heading"><div><h2>Research result</h2><p id="run-caption">Workflow completed</p></div><span class="run-id" id="run-id"></span></div>
+          <article class="query-card" aria-live="polite">
+            <div class="section-heading"><h3 id="answer-status">Completed</h3></div>
+            <div id="answer-text" class="answer-text"></div>
+            <div id="warnings" class="warning hidden"></div>
+          </article>
         </div>
       </section>
       <section class="page" id="page-evaluation">
