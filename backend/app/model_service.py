@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import re
 import time
@@ -10,6 +11,8 @@ from .config import (
     OUTPUT_PRICE_PER_1M,
 )
 
+
+logger = logging.getLogger(__name__)
 
 RETRYABLE_STATUS_CODES = {429, 500, 502, 503, 504}
 
@@ -49,6 +52,7 @@ class GeminiService:
                 from google import genai
                 self.client = genai.Client(api_key=GEMINI_API_KEY)
             except Exception as exc:
+                logger.exception("Gemini client initialization failed")
                 raise ModelUnavailable(
                     "Gemini client initialization failed. Check the API key and SDK configuration."
                 ) from exc
@@ -59,7 +63,9 @@ class GeminiService:
                 "Gemini API key is not configured. Add GEMINI_API_KEY to the service environment."
             )
 
-        config = {"temperature": 0.1}
+        # Gemini 3 models use the default sampling configuration; avoid
+        # sending legacy temperature/top_p/top_k settings.
+        config = {}
         if json_mode:
             config["response_mime_type"] = "application/json"
 
@@ -72,25 +78,80 @@ class GeminiService:
 
         for attempt in range(1, max_attempts + 1):
             try:
+                logger.info(
+                    "Calling Gemini | model=%s | attempt=%s/%s | json_mode=%s",
+                    self.model,
+                    attempt,
+                    max_attempts,
+                    json_mode,
+                )
                 response = self.client.models.generate_content(
                     model=self.model, contents=prompt, config=config
                 )
+                logger.info("Gemini call succeeded | model=%s | attempt=%s", self.model, attempt)
                 break
             except Exception as exc:
                 last_error = exc
+                status = (
+                    getattr(exc, "code", None)
+                    or getattr(exc, "status_code", None)
+                    or getattr(exc, "http_status", None)
+                )
+                # Never write the configured API key to application logs.
+                error_message = str(exc)
+                if GEMINI_API_KEY:
+                    error_message = error_message.replace(GEMINI_API_KEY, "[REDACTED]")
+
                 if not is_retryable_gemini_error(exc):
+                    logger.exception(
+                        "Non-retryable Gemini failure | model=%s | attempt=%s/%s | "
+                        "type=%s | status=%s | error=%s",
+                        self.model,
+                        attempt,
+                        max_attempts,
+                        type(exc).__name__,
+                        status,
+                        error_message[:1000],
+                    )
                     raise
+
+                logger.warning(
+                    "Retryable Gemini failure | model=%s | attempt=%s/%s | "
+                    "type=%s | status=%s | error=%s",
+                    self.model,
+                    attempt,
+                    max_attempts,
+                    type(exc).__name__,
+                    status,
+                    error_message[:1000],
+                )
+
                 if attempt >= max_attempts:
                     break
+
                 delay = min(base_delay * (2 ** (attempt - 1)), max_delay)
+                logger.info("Waiting %.2f seconds before Gemini retry", delay)
                 time.sleep(delay)
                 retry_wait_ms += round(delay * 1000)
 
         if response is None:
+            logger.error(
+                "Gemini retries exhausted | model=%s | attempts=%s | retry_wait_ms=%s | "
+                "last_error_type=%s | last_error=%s",
+                self.model,
+                max_attempts,
+                retry_wait_ms,
+                type(last_error).__name__ if last_error else "Unknown",
+                (
+                    str(last_error).replace(GEMINI_API_KEY, "[REDACTED]")
+                    if last_error and GEMINI_API_KEY
+                    else str(last_error)
+                )[:1000] if last_error else "No response and no exception captured",
+            )
             raise ModelUnavailable(
-                "Gemini is temporarily unavailable or under heavy load. "
-                f"The request was attempted {max_attempts} times with automatic backoff. "
-                "Please retry this research question shortly.",
+                "Gemini request failed after "
+                f"{max_attempts} attempts. Check Render application logs for the original "
+                "Gemini API status and error details.",
                 attempts=max_attempts,
                 retry_wait_ms=retry_wait_ms,
                 retryable=True,
