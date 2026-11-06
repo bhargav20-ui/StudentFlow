@@ -47,7 +47,7 @@ def metrics():
         return round(statistics.mean(values), 4) if values else None
     tool_calls = sum(item.get("metrics", {}).get("tool_calls", 0) for item in items)
     tool_successes = sum(item.get("metrics", {}).get("tool_successes", 0) for item in items)
-    return {"run_count": len(items), "task_success_rate": avg("task_success"), "mean_latency_ms": avg("latency_ms"), "p95_latency_ms": latencies[min(len(latencies)-1, max(0, math.ceil(.95*len(latencies))-1))], "mean_groundedness": avg("groundedness"), "mean_evidence_coverage": avg("evidence_coverage"), "mean_hallucination_rate": avg("hallucination_rate"), "mean_citation_validity": avg("citation_validity"), "mean_tokens": avg("total_tokens"), "tool_success_rate": round(tool_successes / tool_calls, 4) if tool_calls else None}
+    return {"run_count": len(items), "task_success_rate": avg("task_success"), "mean_latency_ms": avg("latency_ms"), "p95_latency_ms": latencies[min(len(latencies)-1, max(0, math.ceil(.95*len(latencies))-1))], "mean_groundedness": avg("groundedness"), "mean_evidence_coverage": avg("evidence_coverage"), "mean_hallucination_rate": avg("hallucination_rate"), "mean_citation_validity": avg("citation_validity"), "pipeline_execution_success_rate": avg("pipeline_execution_success"), "retrieval_success_rate": avg("retrieval_success"), "mean_agent_completion_rate": avg("agent_completion_rate"), "mean_tokens": avg("total_tokens"), "tool_success_rate": round(tool_successes / tool_calls, 4) if tool_calls else None}
 
 @app.get("/mcp/tools")
 async def mcp_tools():
