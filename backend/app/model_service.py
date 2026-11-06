@@ -19,7 +19,14 @@ RETRYABLE_STATUS_CODES = {429, 500, 502, 503, 504}
 
 class ModelUnavailable(RuntimeError):
     def __init__(
-        self, message, *, attempts=0, retry_wait_ms=0, retryable=False, status_code=None
+        self,
+        message,
+        *,
+        attempts=0,
+        retry_wait_ms=0,
+        retryable=False,
+        status_code=None,
+        model_latency_ms=0,
     ):
         super().__init__(message)
         self.attempts = attempts
@@ -27,6 +34,7 @@ class ModelUnavailable(RuntimeError):
         self.retry_wait_ms = retry_wait_ms
         self.retryable = retryable
         self.status_code = status_code
+        self.model_latency_ms = model_latency_ms
 
 
 def is_daily_quota_error(exc):
@@ -64,7 +72,21 @@ class GeminiService:
         if GEMINI_API_KEY:
             try:
                 from google import genai
-                self.client = genai.Client(api_key=GEMINI_API_KEY)
+                from google.genai import types
+
+                # Bound every HTTP request and disable SDK-internal retries.
+                # StudentFlow owns the single, observable retry policy below.
+                self.timeout_ms = max(
+                    5000,
+                    min(int(os.getenv("GEMINI_REQUEST_TIMEOUT_MS", "20000")), 60000),
+                )
+                self.client = genai.Client(
+                    api_key=GEMINI_API_KEY,
+                    http_options=types.HttpOptions(
+                        timeout=self.timeout_ms,
+                        retry_options=types.HttpRetryOptions(attempts=1),
+                    ),
+                )
             except Exception as exc:
                 logger.exception("Gemini client initialization failed")
                 raise ModelUnavailable(
@@ -83,21 +105,25 @@ class GeminiService:
         if json_mode:
             config["response_mime_type"] = "application/json"
 
-        max_attempts = max(1, min(int(os.getenv("GEMINI_MAX_ATTEMPTS", "4")), 6))
-        base_delay = max(0.25, min(float(os.getenv("GEMINI_RETRY_BASE_SECONDS", "1.5")), 10))
-        max_delay = max(base_delay, min(float(os.getenv("GEMINI_RETRY_MAX_SECONDS", "12")), 30))
+        # Keep the synchronous request path bounded: at most two attempts,
+        # with a short delay only for transient 5xx / non-daily 429 failures.
+        max_attempts = max(1, min(int(os.getenv("GEMINI_MAX_ATTEMPTS", "2")), 2))
+        base_delay = max(0.25, min(float(os.getenv("GEMINI_RETRY_BASE_SECONDS", "0.75")), 2))
+        max_delay = max(base_delay, min(float(os.getenv("GEMINI_RETRY_MAX_SECONDS", "1.5")), 3))
         retry_wait_ms = 0
         last_error = None
         response = None
+        request_started = time.perf_counter()
 
         for attempt in range(1, max_attempts + 1):
             try:
                 logger.info(
-                    "Calling Gemini | model=%s | attempt=%s/%s | json_mode=%s",
+                    "Calling Gemini | model=%s | attempt=%s/%s | json_mode=%s | timeout_ms=%s",
                     self.model,
                     attempt,
                     max_attempts,
                     json_mode,
+                    getattr(self, "timeout_ms", 20000),
                 )
                 response = self.client.models.generate_content(
                     model=self.model, contents=prompt, config=config
@@ -134,6 +160,7 @@ class GeminiService:
                         retry_wait_ms=retry_wait_ms,
                         retryable=False,
                         status_code=429,
+                        model_latency_ms=round((time.perf_counter() - request_started) * 1000, 2),
                     ) from exc
 
                 if not is_retryable_gemini_error(exc):
@@ -189,6 +216,12 @@ class GeminiService:
                 attempts=max_attempts,
                 retry_wait_ms=retry_wait_ms,
                 retryable=True,
+                status_code=(
+                    getattr(last_error, "code", None)
+                    or getattr(last_error, "status_code", None)
+                    or getattr(last_error, "http_status", None)
+                ) if last_error else None,
+                model_latency_ms=round((time.perf_counter() - request_started) * 1000, 2),
             ) from last_error
 
         text = getattr(response, "text", None) or ""
@@ -223,4 +256,5 @@ class GeminiService:
             "model_attempts": attempt,
             "model_retries": attempt - 1,
             "retry_wait_ms": retry_wait_ms,
+            "model_latency_ms": round((time.perf_counter() - request_started) * 1000, 2),
         }
