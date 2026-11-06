@@ -42,9 +42,14 @@ def metrics():
     if not items:
         return {"run_count": 0, "measured_runs": 0, "message": "No completed runs yet."}
 
-    # Focus performance summaries on recent work so an old timeout-heavy run
-    # does not hide improvements in the current deployment.
-    recent = items[:10]
+    # Prefer runs captured by the current latency instrumentation. Legacy runs
+    # may contain the old unbounded timeout behavior and should not distort the
+    # performance view for the optimized pipeline.
+    instrumented = [
+        item for item in items
+        if isinstance(item.get("metrics", {}).get("stage_latencies_ms"), dict)
+    ]
+    recent = (instrumented if instrumented else items)[:10]
     latencies = sorted(
         float(item.get("metrics", {}).get("latency_ms", 0) or 0)
         for item in recent
@@ -83,7 +88,10 @@ def metrics():
     return {
         "run_count": len(items),
         "measured_runs": len(recent),
-        "metrics_window": "most recent 10 runs",
+        "metrics_window": (
+            "most recent 10 instrumented runs"
+            if instrumented else "legacy runs; updated measurements appear after the next run"
+        ),
         "task_success_rate": avg("task_success"),
         "mean_latency_ms": avg("latency_ms"),
         "latest_latency_ms": latest_metrics.get("latency_ms"),
