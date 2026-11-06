@@ -31,7 +31,7 @@ class Orchestrator:
         run_id = str(uuid.uuid4())
         events, warnings = [], []
         evidence, claims, plan, tool_log = [], [], [], []
-        usage = {"input": 0, "output": 0, "cost": 0.0, "cost_known": True, "calls": 0, "retries": 0, "retry_wait_ms": 0, "attempts": 0}
+        usage = {"input": 0, "output": 0, "cost": 0.0, "cost_known": True, "calls": 0, "retries": 0, "retry_wait_ms": 0, "attempts": 0, "model_latency_ms": 0.0}
         answer = ""
         failed = False
 
@@ -42,6 +42,7 @@ class Orchestrator:
             usage["attempts"] += int(result.get("model_attempts", 1) or 1)
             usage["retries"] += int(result.get("model_retries", 0) or 0)
             usage["retry_wait_ms"] += int(result.get("retry_wait_ms", 0) or 0)
+            usage["model_latency_ms"] += float(result.get("model_latency_ms", 0) or 0)
             usage["input"] += int(result.get("input_tokens", 0) or 0)
             usage["output"] += int(result.get("output_tokens", 0) or 0)
             cost = result.get("cost_usd")
@@ -136,6 +137,7 @@ class Orchestrator:
             usage["attempts"] += int(exc.attempts or 0)
             usage["retries"] += int(exc.retries or 0)
             usage["retry_wait_ms"] += int(exc.retry_wait_ms or 0)
+            usage["model_latency_ms"] += float(exc.model_latency_ms or 0)
             if exc.status_code == 429 and not exc.retryable:
                 warnings.append("Gemini daily quota was exhausted; automatic retries were skipped.")
             elif exc.retryable:
@@ -192,6 +194,10 @@ class Orchestrator:
             "tool_calls": tool_calls,
             "tool_successes": sum(bool(item.get("success")) for item in tool_log),
             "model_calls": usage["calls"],
+            "model_latency_ms": round(usage["model_latency_ms"], 2),
+            "stage_latencies_ms": {
+                event["agent"]: event["latency_ms"] for event in events
+            },
             "model_attempts": usage["attempts"],
             "model_retries": usage["retries"],
             "retry_wait_ms": usage["retry_wait_ms"],
