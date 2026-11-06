@@ -139,11 +139,8 @@ def _europe_pmc_search(query, limit):
         url = f"https://europepmc.org/article/{source_name}/{source_id}"
         journal = record.get("journalTitle")
         if not journal:
-            journal = (
-                record.get("journalInfo", {})
-                .get("journal", {})
-                .get("title", "")
-            )
+            journal_info = record.get("journalInfo") or {}
+            journal = (journal_info.get("journal") or {}).get("title", "")
         metadata = " | ".join(
             value for value in (
                 str(record.get("authorString") or "").strip(),
@@ -185,7 +182,7 @@ def search_sources(query, limit=5):
             "hit_count": hit_count,
             "query": used_query,
         }
-    except (httpx.HTTPError, ValueError, KeyError, TypeError) as exc:
+    except Exception as exc:
         source_status["europe_pmc"]["error"] = (
             f"{type(exc).__name__}: {str(exc)[:300]}"
         )
