@@ -159,8 +159,8 @@ def _europe_pmc_search(query, limit):
     return documents, int(payload.get("hitCount") or 0), search_query
 
 
-def search_sources(query, limit=5):
-    """Search local notes and external literature; report external failures explicitly."""
+def search_sources_with_status(query, limit=5):
+    """Search local notes and external literature and include per-source status."""
     if not isinstance(query, str) or not query.strip():
         raise ValueError("Search query must be non-empty")
     try:
@@ -198,6 +198,12 @@ def search_sources(query, limit=5):
         "items": combined[:limit],
         "source_status": source_status,
     }
+
+
+
+def search_sources(query, limit=5):
+    """Backward-compatible list-returning search interface."""
+    return search_sources_with_status(query, limit)["items"]
 
 
 def get_document(document_id):
