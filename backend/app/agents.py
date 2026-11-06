@@ -240,7 +240,7 @@ class WriterAgent:
                 "fully establish them."
             )
 
-        return "\\n".join(sections), None
+        return "\n".join(sections), None
 
 
 class EvaluatorAgent:
