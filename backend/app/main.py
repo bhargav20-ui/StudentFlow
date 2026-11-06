@@ -40,14 +40,70 @@ def comparison(request: CompareRequest):
 def metrics():
     items = list_runs()
     if not items:
-        return {"run_count": 0, "message": "No completed runs yet."}
-    latencies = sorted(float(item.get("metrics", {}).get("latency_ms", 0)) for item in items)
+        return {"run_count": 0, "measured_runs": 0, "message": "No completed runs yet."}
+
+    # Focus performance summaries on recent work so an old timeout-heavy run
+    # does not hide improvements in the current deployment.
+    recent = items[:10]
+    latencies = sorted(
+        float(item.get("metrics", {}).get("latency_ms", 0) or 0)
+        for item in recent
+    )
+
     def avg(key):
-        values = [item.get("metrics", {}).get(key) for item in items if isinstance(item.get("metrics", {}).get(key), (int, float))]
+        values = [
+            item.get("metrics", {}).get(key)
+            for item in recent
+            if isinstance(item.get("metrics", {}).get(key), (int, float))
+        ]
         return round(statistics.mean(values), 4) if values else None
-    tool_calls = sum(item.get("metrics", {}).get("tool_calls", 0) for item in items)
-    tool_successes = sum(item.get("metrics", {}).get("tool_successes", 0) for item in items)
-    return {"run_count": len(items), "task_success_rate": avg("task_success"), "mean_latency_ms": avg("latency_ms"), "p95_latency_ms": latencies[min(len(latencies)-1, max(0, math.ceil(.95*len(latencies))-1))], "mean_groundedness": avg("groundedness"), "mean_evidence_coverage": avg("evidence_coverage"), "mean_hallucination_rate": avg("hallucination_rate"), "mean_citation_validity": avg("citation_validity"), "pipeline_execution_success_rate": avg("pipeline_execution_success"), "retrieval_success_rate": avg("retrieval_success"), "mean_agent_completion_rate": avg("agent_completion_rate"), "mean_model_retries": avg("model_retries"), "mean_tokens": avg("total_tokens"), "tool_success_rate": round(tool_successes / tool_calls, 4) if tool_calls else None}
+
+    tool_calls = sum(item.get("metrics", {}).get("tool_calls", 0) for item in recent)
+    tool_successes = sum(item.get("metrics", {}).get("tool_successes", 0) for item in recent)
+
+    stage_names = {
+        stage
+        for item in recent
+        for stage in (item.get("metrics", {}).get("stage_latencies_ms") or {})
+    }
+    mean_stage_latencies = {}
+    for stage in stage_names:
+        values = [
+            item.get("metrics", {}).get("stage_latencies_ms", {}).get(stage)
+            for item in recent
+            if isinstance(
+                (item.get("metrics", {}).get("stage_latencies_ms") or {}).get(stage),
+                (int, float),
+            )
+        ]
+        if values:
+            mean_stage_latencies[stage] = round(statistics.mean(values), 2)
+
+    latest_metrics = recent[0].get("metrics", {})
+    return {
+        "run_count": len(items),
+        "measured_runs": len(recent),
+        "metrics_window": "most recent 10 runs",
+        "task_success_rate": avg("task_success"),
+        "mean_latency_ms": avg("latency_ms"),
+        "latest_latency_ms": latest_metrics.get("latency_ms"),
+        "p95_latency_ms": latencies[
+            min(len(latencies) - 1, max(0, math.ceil(0.95 * len(latencies)) - 1))
+        ],
+        "mean_model_latency_ms": avg("model_latency_ms"),
+        "mean_groundedness": avg("groundedness"),
+        "mean_evidence_coverage": avg("evidence_coverage"),
+        "mean_hallucination_rate": avg("hallucination_rate"),
+        "mean_citation_validity": avg("citation_validity"),
+        "pipeline_execution_success_rate": avg("pipeline_execution_success"),
+        "retrieval_success_rate": avg("retrieval_success"),
+        "mean_agent_completion_rate": avg("agent_completion_rate"),
+        "mean_model_retries": avg("model_retries"),
+        "mean_tokens": avg("total_tokens"),
+        "tool_success_rate": round(tool_successes / tool_calls, 4) if tool_calls else None,
+        "mean_stage_latencies_ms": mean_stage_latencies,
+        "latest_stage_latencies_ms": latest_metrics.get("stage_latencies_ms", {}),
+    }
 
 @app.get("/mcp/tools")
 async def mcp_tools():
