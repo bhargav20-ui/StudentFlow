@@ -17,6 +17,9 @@ function renderMetrics(metrics) {
   $('run-metrics').innerHTML = [
     metricCard('Groundedness',percent(metrics.groundedness),'Claims supported by evidence'),
     metricCard('Evidence coverage',percent(metrics.evidence_coverage),'Claims linked to evidence'),
+    metricCard('Citation validity',percent(metrics.citation_validity),'Answer citations resolving to retrieved evidence'),
+    metricCard('Pipeline execution',metrics.pipeline_execution_success===true?'Passed':metrics.pipeline_execution_success===false?'Failed':'—','Agent and MCP execution status'),
+    metricCard('Retrieval',metrics.retrieval_success===true?'Evidence found':metrics.retrieval_success===false?'No evidence':'—','Whether relevant source records were returned'),
     metricCard('Unsupported claims',percent(metrics.hallucination_rate),'Unsupported or contradicted claims'),
     metricCard('Latency',number(metrics.latency_ms,' ms'),'End-to-end measured time'),
     metricCard('Total tokens',number(metrics.total_tokens),'Reported by model API'),
@@ -63,7 +66,7 @@ $('question').addEventListener('keydown',event=>{if((event.ctrlKey||event.metaKe
 async function loadMetrics() {
   const container=$('aggregate-metrics');container.innerHTML='<div class="loading-card">Loading measured metrics…</div>';
   try {const data=await api('/metrics');if(!data.run_count){container.innerHTML='<div class="loading-card">No runs recorded yet. Run research first; metrics will appear here.</div>';return;}
-    container.innerHTML=[metricCard('Recorded runs',number(data.run_count),'Completed workflow logs'),metricCard('Task success',percent(data.task_success_rate),'Average recorded run outcome'),metricCard('Mean groundedness',percent(data.mean_groundedness),'From recorded claim checks'),metricCard('Mean unsupported claims',percent(data.mean_hallucination_rate),'Unsupported / contradicted'),metricCard('MCP tool success',percent(data.tool_success_rate),'Successful calls / total calls'),metricCard('Mean latency',number(data.mean_latency_ms,' ms'),'End-to-end time'),metricCard('P95 latency',number(data.p95_latency_ms,' ms'),'95th-percentile recorded run'),metricCard('Mean tokens',number(data.mean_tokens),'Model-reported usage')].join('');
+    container.innerHTML=[metricCard('Recorded runs',number(data.run_count),'Completed workflow logs'),metricCard('Task success',percent(data.task_success_rate),'Average recorded run outcome'),metricCard('Mean groundedness',percent(data.mean_groundedness),'From recorded claim checks'),metricCard('Mean citation validity',percent(data.mean_citation_validity),'Answer citations resolving to evidence'),metricCard('Mean unsupported claims',percent(data.mean_hallucination_rate),'Unsupported / contradicted'),metricCard('MCP tool success',percent(data.tool_success_rate),'Successful calls / total calls'),metricCard('Mean latency',number(data.mean_latency_ms,' ms'),'End-to-end time'),metricCard('P95 latency',number(data.p95_latency_ms,' ms'),'95th-percentile recorded run'),metricCard('Mean tokens',number(data.mean_tokens),'Model-reported usage')].join('');
   } catch(e){container.innerHTML=`<div class="loading-card">Could not load metrics: ${esc(e.message)}</div>`;}
 }
 $('compare-button').addEventListener('click',async()=>{
