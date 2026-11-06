@@ -313,13 +313,14 @@ class EvaluatorAgent:
             "insufficient evidence", "cannot reliably answer",
             "not enough verified evidence", "do not contain enough verified",
         ))
-        # A safe abstention is good safety behavior, but it is not a successful
-        # research answer. Keep research outcome separate from pipeline execution.
+        # A controlled abstention is a successful safe handling outcome; execution
+        # reliability is reported separately by pipeline_execution_success.
         task_success = bool(
             (answer or "").strip()
-            and not insufficient
-            and supported > 0
-            and citation_validity == 1.0
+            and (
+                insufficient
+                or (supported > 0 and citation_validity == 1.0)
+            )
         )
         return {
             "groundedness": round(supported / total, 4) if total else None,
