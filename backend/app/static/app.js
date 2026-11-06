@@ -68,20 +68,4 @@ async function loadMetrics() {
     container.innerHTML=[metricCard('Recorded runs',number(data.run_count),'Completed workflow logs'),metricCard('Task success',percent(data.task_success_rate),'Average recorded run outcome'),metricCard('Mean groundedness',percent(data.mean_groundedness),'From recorded claim checks'),metricCard('Mean citation validity',percent(data.mean_citation_validity),'Answer citations resolving to evidence'),metricCard('Pipeline success',percent(data.pipeline_execution_success_rate),'Runs without agent or MCP execution failure'),metricCard('Retrieval success',percent(data.retrieval_success_rate),'Runs that returned source evidence'),metricCard('Agent completion',percent(data.mean_agent_completion_rate),'Expected stages completed per run'),metricCard('Mean unsupported claims',percent(data.mean_hallucination_rate),'Unsupported / contradicted'),metricCard('MCP tool success',percent(data.tool_success_rate),'Successful calls / total calls'),metricCard('Mean latency',number(data.mean_latency_ms,' ms'),'End-to-end time'),metricCard('P95 latency',number(data.p95_latency_ms,' ms'),'95th-percentile recorded run'),metricCard('Mean tokens',number(data.mean_tokens),'Model-reported usage'),metricCard('Mean model retries',number(data.mean_model_retries),'Additional attempts per run')].join('');
   } catch(e){container.innerHTML=`<div class="loading-card">Could not load metrics: ${esc(e.message)}</div>`;}
 }
-async function loadDocuments(){
-  try{const data=await api('/documents');$('document-count').textContent=`${data.count} sources`;$('document-list').innerHTML=(data.documents||[]).map(doc=>`<div class="document-item"><div class="document-title">${esc(doc.title)}</div><div class="document-meta">${esc(doc.document_id)} · ${esc(doc.source||'source not specified')}</div><div class="evidence-text">${esc(doc.text||'')}</div></div>`).join('')||'<p class="muted">No documents in the knowledge base.</p>';}
-  catch(e){$('document-list').textContent=e.message;}
-}
-$('document-form').addEventListener('submit',async event=>{
-  event.preventDefault();const button=event.submitter;const payload={title:$('doc-title').value.trim(),source:$('doc-source').value.trim()||'user-added',text:$('doc-text').value.trim()};setBusy(button,true,'Adding source…');$('doc-message').textContent='';
-  try{const result=await api('/documents',{method:'POST',body:JSON.stringify(payload)});$('doc-message').textContent=`Added ${result.document.document_id}. The researcher can now retrieve it through MCP.`;$('document-form').reset();await loadDocuments();showToast('Document added to the searchable corpus.');}
-  catch(e){$('doc-message').textContent=e.message;$('doc-message').style.color='#bd4545';showToast(e.message,true);}finally{setBusy(button,false);}
-});
-$('refresh-documents').addEventListener('click',async()=>{await loadDocuments();await loadTools();showToast('Documents and MCP tools refreshed.');});
-$('check-mcp').addEventListener('click',loadTools);
-async function loadTools(){
-  $('mcp-status').textContent='Checking';$('mcp-tools').innerHTML='<p class="muted">Discovering MCP tools…</p>';
-  try{const data=await api('/mcp/tools');$('mcp-status').textContent=`Connected · ${data.count}`;$('mcp-status').classList.remove('warning');$('mcp-tools').innerHTML=(data.tools||[]).map(tool=>`<div class="tool-item"><div class="tool-check">✓</div><div><div class="tool-name">${esc(tool.name)}</div><div class="tool-description">${esc(tool.description)}</div></div></div>`).join('');}
-  catch(e){$('mcp-status').textContent='Unavailable';$('mcp-status').classList.add('warning');$('mcp-tools').innerHTML=`<p class="muted">${esc(e.message)}</p>`;}
-}
 checkHealth();
