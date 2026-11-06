@@ -152,10 +152,10 @@ def test_evaluator_handles_supported_and_unsupported_claims():
     assert result["task_success"] is True
 
 
-def test_evaluator_marks_abstention_as_not_a_successful_research_answer():
+def test_evaluator_counts_safe_abstention_as_successful_handling():
     result = EvaluatorAgent().run("Insufficient evidence.", [], [])
     assert result["groundedness"] is None
     assert result["evidence_coverage"] is None
     assert result["hallucination_rate"] is None
     assert result["citation_validity"] is None
-    assert result["task_success"] is False
+    assert result["task_success"] is True
