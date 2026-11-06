@@ -25,7 +25,7 @@ def test_search_sources_returns_flat_evidence_payload(monkeypatch):
         lambda query, limit: ([document], 1, "test query"),
     )
 
-    result = mcp_tools.search_sources("drug interaction", 3)
+    result = mcp_tools.search_sources_with_status("drug interaction", 3)
 
     assert result["items"] == [document]
     assert result["source_status"]["europe_pmc"]["ok"] is True
@@ -38,7 +38,7 @@ def test_search_sources_exposes_external_source_failures(monkeypatch):
         raise RuntimeError("Europe PMC unavailable")
 
     monkeypatch.setattr(mcp_tools, "_europe_pmc_search", fail_search)
-    result = mcp_tools.search_sources("drug interaction", 3)
+    result = mcp_tools.search_sources_with_status("drug interaction", 3)
 
     assert result["items"] == []
     assert result["source_status"]["europe_pmc"]["ok"] is False
