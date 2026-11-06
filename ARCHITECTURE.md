@@ -1,31 +1,45 @@
-# StudentFlow architecture (plain-language version)
+# StudentFlow architecture
 
-## Five layers
+StudentFlow is an evidence-first multi-agent research assistant. It accepts a research question, searches the connected knowledge corpus through MCP, checks claims against retrieved evidence, writes a grounded response, and records measured run metrics.
 
-1. **Interface** — plain HTML/CSS/JavaScript page served by FastAPI. Three sections: Research, Evaluation, Documents & MCP.
-2. **Orchestration** — Python coordinates the workflow and records a shared run result.
-3. **Agents** — Planner creates subtasks; Researcher retrieves source material; Verifier labels claims; Writer creates the answer; Evaluator calculates metrics.
-4. **Capabilities** — an MCP client discovers and invokes tools on a separate MCP server: source search, document lookup, safe calculator, evidence saving, and run metrics.
-5. **Memory/data** — curated documents in JSON, per-run JSON, evaluation JSON/CSV and application logs.
+## Core components
 
-## Main research flow
+1. **Interface** — plain HTML, CSS and JavaScript served by FastAPI.
+2. **Orchestrator** — controls the workflow, shares structured results, records events and handles failures.
+3. **Agents** — Planner, Researcher, Verifier, Writer and Evaluator. The Evaluator calculates metrics from the run; it does not invent quality scores.
+4. **MCP capability layer** — a separate MCP client and stdio server expose only source search and full-document retrieval.
+5. **Model service** — Gemini API calls remain on the backend; credentials are read from environment variables.
+6. **Memory and data** — curated source documents, per-run JSON records and an aggregate CSV metrics log.
 
-User question → Planner → Researcher → MCP client → MCP server/tools → Verifier → Writer → Evaluator → answer + evidence + metrics.
+## Main workflow
 
-The exact path may stop early or return a controlled warning if evidence is missing or a component fails. The user does not manually choose agents. The separate single-agent baseline exists only to support the required experiment.
+User question → Planner → Researcher → MCP client → MCP server → source search / document retrieval → Verifier → Writer → Evaluator → answer, evidence, claims and metrics.
 
-## Main API routes
+The workflow may return an insufficient-evidence response or a controlled warning when retrieval or a component fails. Retrieved document text is untrusted data, never an instruction. The user does not manually select agents.
 
-- `GET /health` — health check.
-- `POST /query` — run a research task (`multi_agent` by default; `single_agent` is the baseline).
-- `POST /comparison` — run the same question through baseline and proposed workflows.
-- `GET /metrics` — aggregate recorded run metrics.
-- `GET /mcp/tools` — connect to the MCP server and discover its tools.
-- `GET /documents`, `POST /documents` — list or add corpus documents.
-- `POST /evaluation/run`, `GET /evaluation/results` — run and read the 30-case suite.
+## Supported modes
 
-## Notes
+- **Multi-agent + MCP** — planning, retrieval, claim verification, writing and evaluation.
+- **Single-agent baseline** — comparison baseline using the same MCP retrieval capability and a single answer-generation call.
 
-- Gemini credentials remain on the backend.
-- The local corpus is intentionally small; retrieval quality depends on the documents added.
-- A metric is a measured estimate, not proof that every answer is correct.
+The comparison endpoint runs the same question through both modes. A single comparison is illustrative; repeated runs on a representative test set are needed before claiming measured improvement.
+
+## API routes
+
+- `GET /health` — service and model configuration status.
+- `POST /query` — run a research question.
+- `POST /comparison` — compare single-agent and multi-agent modes on the same question.
+- `GET /metrics` — aggregate metrics from recorded runs.
+- `GET /mcp/tools` — discover tools exposed by the MCP server.
+- `GET /documents`, `POST /documents` — inspect or add source documents.
+
+## Data and deployment
+
+- `backend/data/documents.json` contains the starter evidence corpus.
+- Run records and `evaluation_results.csv` are written under the configured data directory.
+- The root `Dockerfile` and `render.yaml` are the deployment configuration. The MCP server runs as a local stdio subprocess inside the backend container.
+- Gemini credentials stay in backend environment variables or hosting-provider secrets.
+
+## Scope boundaries
+
+StudentFlow is a research assistant, not an email, calendar, CRM, code-writing or general task-automation agent. It does not need arithmetic tools, external write actions, approval workflows for business side effects, or a separate benchmark-suite UI. Keep the system focused on source-grounded research, transparent evidence, reliable orchestration and honest evaluation.
