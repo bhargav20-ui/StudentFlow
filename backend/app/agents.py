@@ -94,7 +94,7 @@ class ResearcherAgent:
 
     def run(self, tasks, mcp):
         evidence, log = [], []
-        max_items = max(1, min(int(os.getenv("STUDENTFLOW_MAX_EVIDENCE_ITEMS", "20")), 50))
+        max_items = max(4, min(int(os.getenv("STUDENTFLOW_MAX_EVIDENCE_ITEMS", "12")), 24))
         def build_calls(tools, search_tasks):
             tool, query_field = self._search_tool(tools)
             return tool["name"], [
@@ -128,7 +128,7 @@ class ResearcherAgent:
                         "document_id": document_id,
                         "title": str(document.get("title") or "Untitled"),
                         "source": str(document.get("source") or "Unknown"),
-                        "text": str(document.get("text") or "")[:12000],
+                        "text": str(document.get("text") or "")[:5000],
                         "relevance": document.get("relevance"),
                     })
                     if len(evidence) >= max_items:
@@ -148,12 +148,13 @@ class VerifierAgent:
         if not evidence:
             return [], None
         compact = [
-            {"evidence_id": item["evidence_id"], "title": item["title"], "text": item["text"]}
+            {"evidence_id": item["evidence_id"], "title": item["title"], "source": item.get("source", ""), "text": item["text"][:3500]}
             for item in evidence
         ]
         prompt = (
-            "You are a strict evidence verifier. Extract material factual claims needed "
-            "to answer the question. Return JSON with claims containing claim_id, "
+            You are a strict, efficient evidence verifier. Extract the key factual claims needed "
+            "to answer a medium- or high-complexity research question. Prefer a small set "
+            "of precise, material claims over many trivial claims. Return JSON with claims containing claim_id, 
             "statement, evidence_ids, status, confidence, and reason. Status must be "
             "SUPPORTED, PARTIALLY_SUPPORTED, UNSUPPORTED, or CONTRADICTED. Only cite "
             "IDs whose text directly supports the claim. Missing evidence is not proof "
