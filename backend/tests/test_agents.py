@@ -50,9 +50,10 @@ class FakeMCP:
             },
         }]
 
-    async def call_many(self, tool_name, argument_sets):
+    async def discover_and_call_many(self, build_calls, tasks):
+        tool_name, argument_sets = build_calls(await self.list_tools(), tasks)
         assert tool_name == "search_sources_tool"
-        return [{"items": [{
+        return tool_name, [{"items": [{
             "document_id": "DOC1",
             "title": "Source",
             "source": "test://source",
@@ -108,7 +109,13 @@ def test_writer_falls_back_to_verified_claims_when_citations_are_invalid():
     }]
     evidence = [{"evidence_id": "E001", "title": "Source", "text": "Evidence"}]
     answer, _ = WriterAgent().run("Question", claims, evidence, model)
-    assert answer == "- Verified statement [E001]"
+    assert answer == (
+        "Evidence-based research synthesis\\n\\n"
+        "Findings\\n"
+        "- Verified statement [E001]\\n\\n"
+        "Sources\\n"
+        "- [E001] Source — Source link unavailable"
+    )
 
 
 def test_writer_rejects_unknown_citation_ids():
@@ -136,7 +143,7 @@ def test_evaluator_handles_supported_and_unsupported_claims():
     assert result["evidence_coverage"] == 0.5
     assert result["hallucination_rate"] == 0.5
     assert result["citation_validity"] == 1.0
-    assert result["task_success"] is False
+    assert result["task_success"] is True
 
 
 def test_evaluator_marks_abstention_as_not_a_successful_research_answer():
@@ -145,4 +152,4 @@ def test_evaluator_marks_abstention_as_not_a_successful_research_answer():
     assert result["evidence_coverage"] is None
     assert result["hallucination_rate"] is None
     assert result["citation_validity"] is None
-    assert result["task_success"] is True
+    assert result["task_success"] is False
