@@ -148,8 +148,23 @@ class Orchestrator:
 
         latency = round((time.perf_counter() - started) * 1000, 2)
         tool_calls = len(tool_log)
+        expected_agents = (
+            {"retrieval", "single_agent", "evaluator"}
+            if mode == "single_agent"
+            else {"planner", "researcher", "verifier", "writer", "evaluator"}
+        )
+        completed_agents = {
+            event["agent"] for event in events
+            if event.get("status") in {"completed", "warning"}
+        }
+        tool_execution_ok = all(item.get("success") for item in tool_log)
         metrics = {
             **evaluation,
+            "pipeline_execution_success": not failed and tool_execution_ok,
+            "retrieval_success": bool(evidence),
+            "agent_completion_rate": round(
+                len(expected_agents.intersection(completed_agents)) / len(expected_agents), 4
+            ),
             "latency_ms": latency,
             "p95_latency_ms": None,
             "input_tokens": usage["input"],
