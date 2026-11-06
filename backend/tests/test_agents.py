@@ -136,10 +136,10 @@ def test_evaluator_handles_supported_and_unsupported_claims():
     assert result["evidence_coverage"] == 0.5
     assert result["hallucination_rate"] == 0.5
     assert result["citation_validity"] == 1.0
-    assert result["task_success"] is True
+    assert result["task_success"] is False
 
 
-def test_evaluator_marks_empty_claim_metrics_not_applicable():
+def test_evaluator_marks_abstention_as_not_a_successful_research_answer():
     result = EvaluatorAgent().run("Insufficient evidence.", [], [])
     assert result["groundedness"] is None
     assert result["evidence_coverage"] is None
