@@ -1,16 +1,16 @@
 from mcp.server.fastmcp import FastMCP
 
-from app.mcp_tools import get_document, search_sources
+from app.mcp_tools import get_document, search_sources_with_status
 
 mcp = FastMCP("StudentFlow Research")
 
 
 @mcp.tool()
 def search_sources_tool(query: str, limit: int = 5) -> dict:
-    """Search the curated StudentFlow knowledge corpus for relevant source documents."""
+    """Search biomedical literature and local notes with source-status metadata."""
     # search_sources already returns the MCP payload: {items, source_status}.
     # Do not wrap it in another items object or the Researcher cannot see documents.
-    return search_sources(query, limit)
+    return search_sources_with_status(query, limit)
 
 
 @mcp.tool()
