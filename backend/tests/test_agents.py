@@ -66,7 +66,8 @@ def test_researcher_discovers_search_tool_and_deduplicates_evidence():
     evidence, log = ResearcherAgent().run(["topic", "topic"], FakeMCP())
     assert len(evidence) == 1
     assert evidence[0]["evidence_id"] == "E001"
-    assert len(log) == 2
+    assert len(log) == 1
+    assert log[0]["returned"] == 1
     assert all(item["success"] for item in log)
 
 
