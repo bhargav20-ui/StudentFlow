@@ -202,8 +202,12 @@ def search_sources_with_status(query, limit=5):
 
 
 def search_sources(query, limit=5):
-    """Backward-compatible list-returning search interface."""
-    return search_sources_with_status(query, limit)["items"]
+    """Backward-compatible list-returning local-first search interface."""
+    payload = search_sources_with_status(query, limit)
+    local = _local_search(query, limit)
+    # Older callers pair this helper with get_document(), which only resolves
+    # stable IDs from the local corpus. Keep that contract intact.
+    return local if local else payload["items"]
 
 
 def get_document(document_id):
