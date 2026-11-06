@@ -1,24 +1,28 @@
 # StudentFlow
 
-StudentFlow is an evidence-first **autonomous multi-agent research and report assistant**. A user submits a research question; the orchestrator decides which agents to run. The agents plan subtasks, retrieve evidence through an MCP client/server, verify claims, write a source-grounded answer, and calculate run metrics.
+StudentFlow is an evidence-first **multi-agent research assistant**. A user submits a research question; the system plans research subtasks, retrieves source documents through MCP, verifies claims against evidence, writes a grounded answer and records run metrics.
 
-## Why this is a genuine multi-agent use case
+## Core workflow
 
-A research task benefits from separate responsibilities: decomposing a broad question, retrieving source material, checking claims against that material, writing only from verified claims, and evaluating the result. These stages can pass structured evidence and verification decisions to one another. The system is designed to expose failures rather than silently invent missing evidence.
+1. **Planner** — decomposes the question into focused research subtasks.
+2. **Researcher** — discovers and calls MCP search capabilities to retrieve source material.
+3. **Verifier** — checks factual claims and their evidence references.
+4. **Writer** — answers using verified claims and clearly reports evidence gaps.
+5. **Evaluator** — calculates groundedness, evidence coverage, unsupported-claim rate and task outcome for each run.
+6. **Orchestrator** — coordinates the agents, records workflow events and handles controlled failures.
 
-## Simple technology stack
+The separate MCP server exposes only two capabilities: searching the curated corpus and retrieving a full document by ID.
 
-- **Python 3.12** — backend, orchestration, agents, MCP client/server, metrics and API.
-- **FastAPI** — API and serves the interface.
-- **Plain HTML, CSS and JavaScript** — small UI; no React, TypeScript, Node.js, or frontend build step.
-- **Gemini API** — model calls; API key stays on the backend.
-- **MCP Python SDK** — tool discovery and invocation across a separate MCP server process.
-- **JSON, CSV and pytest** — local evidence corpus, run records, evaluation results and tests.
+## Technology
 
-## Run on Windows / VS Code
+- Python 3.12, FastAPI and Pydantic
+- Gemini API (backend only)
+- MCP Python SDK with a stdio client/server
+- Plain HTML, CSS and JavaScript; no frontend build step
+- JSON document corpus, JSON run records, CSV metrics and pytest
+- Docker and Render deployment configuration
 
-1. Open the `StudentFlow` folder in VS Code.
-2. Open a terminal and run:
+## Run locally on Windows
 
 ```powershell
 cd backend
@@ -28,50 +32,47 @@ python -m pip install -r requirements.txt
 Copy-Item .env.example .env
 ```
 
-3. Open `backend/.env` and set `GEMINI_API_KEY` to your own key. Keep this file private. The default model is `gemini-3.8-flash`; change it only to a model available to your API account.
-4. Start the app:
+Add your own `GEMINI_API_KEY` to `backend/.env`. Keep the file private.
+
+Start the application:
 
 ```powershell
 uvicorn app.main:app --reload --port 8000
 ```
 
-5. Open **http://127.0.0.1:8000**. API documentation is at **http://127.0.0.1:8000/docs** and health check at **http://127.0.0.1:8000/health**. No second terminal or frontend installation is required.
+Open the UI at http://127.0.0.1:8000. API docs are at http://127.0.0.1:8000/docs and health is at http://127.0.0.1:8000/health.
 
-## Interface sections
+## Interface
 
-1. **Research** — submit a question; inspect the actual workflow trace, answer, evidence, claim statuses and run metrics.
-2. **Evaluation** — inspect metrics from saved runs, run the 30-case screening suite, and compare a single-agent baseline against multi-agent + MCP on the same question.
-3. **Documents & MCP** — add text documents to the local searchable corpus and inspect the tools discovered from the MCP server.
+- **Research** — submit a question and inspect the answer, workflow trace, evidence, claim checks and per-run metrics.
+- **Insights** — inspect aggregate metrics from saved runs and compare the single-agent baseline with multi-agent + MCP on the same question.
+- **Documents & MCP** — add source text, inspect the knowledge corpus and discover the two MCP research tools.
 
-Run history is stored in the backend but is not given a separate navigation tab. The most useful trace and evidence are shown directly with each research result.
-
-## Tests and evaluation
+## Tests
 
 ```powershell
 cd backend
 pytest -q
 ```
 
-The evaluation button runs 30 Gemini-backed cases and may consume API quota. It writes measured outputs to `backend/results/evaluation_suite.json` and `.csv`. A passing automated check is only a screening signal; manually inspect a sample. Compare baseline and multi-agent metrics across the same test set before making claims about improvement.
+The tests cover corpus search, document lookup, Gemini retry classification, cost arithmetic and evaluation edge cases. They do not make Gemini-backed research calls.
 
-## Measurements and costs
+## Measurements
 
-Each run records the run ID, workflow events, MCP tool calls, latency, token usage when reported by Gemini, claim grounding, evidence coverage, unsupported/contradicted claim rate and task outcome. Exact API cost is left as **not configured** until you add verified per-million-token prices for the exact model to `.env`; the system must not pretend unknown cost is zero.
+Each run records its ID, workflow events, retrieved evidence, verified claims, MCP tool outcomes, latency and model-reported token usage. Estimated API cost is shown only when verified per-million-token prices for the configured model have been supplied. Unknown cost is not reported as zero.
 
-## Important limitations and safety
+The Insights page compares the baseline and multi-agent workflow. A single run is illustrative, not a statistically reliable benchmark. Use a representative golden set, repeated runs, trajectory checks and human review before claiming an improvement.
 
-- The starter corpus is small and local. Add relevant source documents in **Documents & MCP** for useful domain research.
-- The verifier and automated checks do not guarantee zero hallucinations. Evidence absence means the corpus is insufficient, not that a real-world claim is false.
-- Added documents are saved to `backend/data/documents.json`; back up the file before replacing the corpus.
-- This is a local academic demo. Before public deployment, add authentication/authorization for document management and administrative actions, request limits, timeouts, and suitable protection for MCP access. Never commit `.env` or publish API keys.
-- Keep the MCP server separate from the reasoning/orchestration layer: MCP exposes capabilities; the orchestrator controls agent flow.
+## Data and deployment
 
-## Case-study requirements covered
+- Starter sources: `backend/data/documents.json`.
+- Runtime records: the configured `STUDENTFLOW_DATA_DIR` with `data/` and `results/` subfolders.
+- Deployment: see [DEPLOY_RENDER.md](DEPLOY_RENDER.md). The root Dockerfile is the Render build target; the MCP server runs as a local subprocess inside the same service.
 
-- Planner, Researcher, Verifier, Writer and Evaluator roles.
-- Automatic orchestration and shared run outputs.
-- Separate MCP client and MCP server with tool discovery and calls.
-- Search, document retrieval, safe arithmetic, evidence persistence and run-metric tools.
-- 30 test cases including unknown questions, false premises, prompt injection and failure-related questions.
-- Grounding, evidence coverage, unsupported-claim rate, latency, P95, tokens, cost configuration and tool success.
-- Single-agent baseline comparison, `/health`, `/query`, `/metrics`, Dockerfile, source, README and tests.
+## Safety and limitations
+
+- Retrieved content is untrusted data, never instructions.
+- Unsupported claims must not be presented as facts. Missing evidence means the available corpus is insufficient, not that a claim is false.
+- The local starter corpus is small; add relevant sources for useful research.
+- This is a controlled academic demonstration, not a hardened public multi-user service. Add authentication, authorization, rate limits and protected administrative access before exposing write endpoints publicly.
+- Never commit `.env`, API keys or private credentials.
