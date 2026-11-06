@@ -48,7 +48,7 @@ function goPage(page) {
   document.querySelectorAll('.nav-item').forEach(b=>b.classList.toggle('active',b.dataset.page===page));
   document.querySelectorAll('.page').forEach(p=>p.classList.toggle('active',p.id===`page-${page}`));
   $('page-title').textContent=({research:'Research',evaluation:'Evaluation',documents:'Documents & MCP'})[page]||'Research';
-  if(page==='evaluation'){loadMetrics();loadEvaluationResults();}
+  if(page==='evaluation'){loadMetrics();}
   if(page==='documents'){loadDocuments();loadTools();}
 }
 document.querySelectorAll('.nav-item').forEach(button=>button.addEventListener('click',()=>goPage(button.dataset.page)));
@@ -65,19 +65,6 @@ async function loadMetrics() {
   try {const data=await api('/metrics');if(!data.run_count){container.innerHTML='<div class="loading-card">No runs recorded yet. Run research first; metrics will appear here.</div>';return;}
     container.innerHTML=[metricCard('Recorded runs',number(data.run_count),'Completed workflow logs'),metricCard('Task success',percent(data.task_success_rate),'Average recorded run outcome'),metricCard('Mean groundedness',percent(data.mean_groundedness),'From recorded claim checks'),metricCard('Mean unsupported claims',percent(data.mean_hallucination_rate),'Unsupported / contradicted'),metricCard('MCP tool success',percent(data.tool_success_rate),'Successful calls / total calls'),metricCard('Mean latency',number(data.mean_latency_ms,' ms'),'End-to-end time'),metricCard('P95 latency',number(data.p95_latency_ms,' ms'),'95th-percentile recorded run'),metricCard('Mean tokens',number(data.mean_tokens),'Model-reported usage')].join('');
   } catch(e){container.innerHTML=`<div class="loading-card">Could not load metrics: ${esc(e.message)}</div>`;}
-}
-$('eval-button').addEventListener('click',async()=>{
-  const button=$('eval-button');
-  if(!confirm('Run the 6 focused evaluation checks? This makes six Gemini API calls and may consume API quota.'))return;
-  setBusy(button,true,'Running 6 checks…');$('eval-output').textContent='Running six checks. This may take a little while.';
-  try{const result=await api('/evaluation/run',{method:'POST',body:'{}'});$('eval-output').innerHTML=`<div class="eval-summary-grid"><div class="mini-stat"><span>Checks passed</span><strong>${number(result.passed)} / ${number(result.total_cases)}</strong></div><div class="mini-stat"><span>Screening pass rate</span><strong>${percent(result.pass_rate)}</strong></div><div class="mini-stat"><span>Mean check latency</span><strong>${number(result.mean_latency_ms,' ms')}</strong></div></div><p class="muted">${esc(result.note||'Automated screening results are not a guarantee of correctness.')}</p>`;showToast('Evaluation checks completed.');await loadEvaluationResults();await loadMetrics();}
-  catch(e){$('eval-output').textContent=`Evaluation failed: ${e.message}`;showToast(e.message,true);}finally{setBusy(button,false);}
-});
-async function loadEvaluationResults(){
-  try{const data=await api('/evaluation/results');if(data.status!=='completed'){$('eval-summary').textContent='Not run';$('eval-cases').innerHTML='<p class="muted">The focused checks have not been run yet.</p>';return;}
-    $('eval-summary').textContent=`${data.passed}/${data.total_cases} passed`;
-    $('eval-cases').innerHTML=`<table><thead><tr><th>Test</th><th>Category</th><th>Expected behavior</th><th>Result</th><th>Latency</th></tr></thead><tbody>${(data.results||[]).map(row=>`<tr><td>${esc(row.test_id)}</td><td>${esc(row.category)}</td><td>${esc(row.expected_behavior)}</td><td class="${row.pass?'pass':'fail'}">${row.pass?'PASS':'FAIL'}</td><td>${number(row.latency_ms,' ms')}</td></tr>`).join('')}</tbody></table>`;
-  }catch(e){$('eval-cases').textContent=e.message;}
 }
 $('compare-button').addEventListener('click',async()=>{
   const question=$('compare-question').value.trim();if(question.length<5){showToast('Enter a question to compare.',true);return;}

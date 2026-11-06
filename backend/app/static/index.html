@@ -12,7 +12,7 @@
       <div class="brand"><div class="brand-mark">S</div><div><strong>StudentFlow</strong><small>Multi-agent research</small></div></div>
       <div class="nav-label">WORKSPACE</div>
       <button class="nav-item active" data-page="research"><span class="nav-icon">⌕</span> Research</button>
-      <button class="nav-item" data-page="evaluation"><span class="nav-icon">▥</span> Evaluation</button>
+      <button class="nav-item" data-page="evaluation"><span class="nav-icon">▥</span> Insights</button>
       <button class="nav-item" data-page="documents"><span class="nav-icon">▤</span> Documents & MCP</button>
       <div class="sidebar-bottom"><div class="status-dot"></div><div><strong>Local workspace</strong><small id="sidebar-status">Checking API…</small></div></div>
     </aside>
@@ -38,11 +38,9 @@
         </div>
       </section>
       <section class="page" id="page-evaluation">
-        <div class="intro"><div><h2>Measure the system, don't guess</h2><p>View metrics from actual runs, run six focused checks, and compare one question against a single-agent baseline.</p></div></div>
+        <div class="intro"><div><h2>Performance insights</h2><p>Explore metrics from real research runs and compare the single-agent baseline with the full multi-agent workflow.</p></div></div>
         <div class="metric-grid" id="aggregate-metrics"><div class="loading-card">Loading measured metrics…</div></div>
-        <div class="result-card"><div class="card-heading"><div><span class="step-tag">01</span><h3>Focused evaluation suite</h3></div><span class="count-pill">6 checks</span></div><p class="muted">Covers supported research, missing evidence, false premises, prompt injection, conflicting evidence, and MCP resilience. Uses Gemini API calls and may consume quota.</p><button class="primary" id="eval-button">Run 6 test cases →</button><div id="eval-output" class="eval-output"></div></div>
-        <div class="result-card"><div class="card-heading"><div><span class="step-tag">02</span><h3>Baseline comparison</h3></div></div><p class="muted">The same question is run once with a single model call and once with the multi-agent + MCP workflow. This helps show the trade-off in evidence quality, time, tokens, and cost.</p><label for="compare-question">QUESTION TO COMPARE</label><textarea id="compare-question" rows="2" placeholder="Enter the same question for both approaches"></textarea><button class="secondary" id="compare-button">Compare both approaches</button><div id="compare-output" class="compare-output"></div></div>
-        <div class="result-card"><div class="card-heading"><div><span class="step-tag">03</span><h3>Latest evaluation results</h3></div><span id="eval-summary" class="count-pill">Not run</span></div><p class="muted">Results below are generated from executed checks. A passing screening check is not a guarantee of factual correctness; manually audit sample outputs.</p><div id="eval-cases" class="table-wrap"></div></div>
+        <div class="result-card"><div class="card-heading"><div><span class="step-tag">01</span><h3>Single-agent vs multi-agent</h3></div></div><p class="muted">Run the same question through both approaches and compare measured evidence quality, latency, token usage, and estimated cost.</p><label for="compare-question">QUESTION TO COMPARE</label><textarea id="compare-question" rows="2" placeholder="Enter a research question to compare both approaches"></textarea><button class="secondary" id="compare-button">Compare both approaches</button><div id="compare-output" class="compare-output"></div></div>
       </section>
       <section class="page" id="page-documents">
         <div class="intro"><div><h2>Knowledge base & MCP tools</h2><p>Documents are the evidence source. The MCP server exposes capabilities that agents discover and call through the MCP client.</p></div><button class="secondary" id="refresh-documents">Refresh data</button></div>

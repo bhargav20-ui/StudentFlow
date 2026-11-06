@@ -1,5 +1,4 @@
 from app.mcp_tools import safe_calculate,search_sources
-from app.evaluation_suite import CASES
 from app.agents import EvaluatorAgent
 from app.model_service import is_retryable_gemini_error
 
@@ -17,9 +16,6 @@ def test_calculator_rejects_python_code():
 def test_corpus_search():
     r=search_sources('orchestrator agents MCP',5)
     assert r and all('document_id' in x for x in r)
-
-def test_six_focused_evaluation_cases():
-    assert len(CASES)==6
 
 def test_cost_formula_example():
     input_tokens,output_tokens,input_price,output_price=4000,1000,1.0,5.0

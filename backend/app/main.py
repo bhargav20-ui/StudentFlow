@@ -1,6 +1,5 @@
 import json
 import statistics
-import asyncio
 import uuid
 import math
 from pathlib import Path
@@ -9,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from .schemas import QueryRequest, DocumentRequest, CompareRequest
 from .orchestrator import Orchestrator
-from .storage import list_runs, RESULTS_DIR, load_documents, DATA_DIR
+from .storage import list_runs, load_documents, DATA_DIR
 
 app = FastAPI(title="StudentFlow", description="Evidence-first autonomous multi-agent research assistant")
 app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:8000", "http://127.0.0.1:8000", "http://localhost:5173", "http://127.0.0.1:5173"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
@@ -71,16 +70,6 @@ def add_document(request: DocumentRequest):
     docs.append(item)
     (DATA_DIR / "documents.json").write_text(json.dumps(docs, ensure_ascii=False, indent=2), encoding="utf-8")
     return {"message": "Document added to the searchable corpus.", "document": item, "count": len(docs)}
-
-@app.post("/evaluation/run")
-def evaluation_run():
-    from .evaluation_suite import run_suite
-    return run_suite()
-
-@app.get("/evaluation/results")
-def evaluation_results():
-    path = RESULTS_DIR / "evaluation_suite.json"
-    return json.loads(path.read_text(encoding="utf-8")) if path.exists() else {"status": "not_run", "message": "Run the evaluation suite to generate measured results."}
 
 # Serve the plain HTML/CSS/JavaScript interface from the same Python app.
 STATIC_DIR = Path(__file__).resolve().parent / "static"
