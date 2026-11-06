@@ -214,7 +214,17 @@ class WriterAgent:
         )
         result = model.generate(prompt)
         answer = str(result.get("text") or "").strip()
-        if not answer:
+
+        # Validate citation markers before accepting model-written prose.
+        # Unknown evidence IDs or citation-free prose fall back to a deterministic
+        # answer assembled only from claims that passed verification.
+        valid_ids = {item["evidence_id"] for item in evidence}
+        cited_ids = re.findall(r"\bE\d{3}\b", answer)
+        has_citation_marker = bool(re.search(r"\[\s*E\d{3}", answer))
+        citations_valid = bool(cited_ids) and all(
+            evidence_id in valid_ids for evidence_id in cited_ids
+        )
+        if not answer or not has_citation_marker or not citations_valid:
             answer = "\n".join(
                 f"- {claim['statement']} [{', '.join(claim['evidence_ids'])}]"
                 for claim in verified
