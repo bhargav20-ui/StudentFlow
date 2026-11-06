@@ -9,14 +9,31 @@ EUROPE_PMC_URL = "https://www.ebi.ac.uk/europepmc/webservices/rest/search"
 
 
 def _local_search(query, limit):
-    terms = {word.lower() for word in re.findall(r"[A-Za-z0-9][A-Za-z0-9-]+", query) if len(word) > 2}
+    stop = {
+        "about", "after", "against", "among", "also", "and", "approach",
+        "approaches", "are", "based", "between", "both", "can", "compare",
+        "comparison", "could", "does", "from", "have", "how", "into", "its",
+        "major", "method", "methods", "their", "them", "these", "those",
+        "through", "using", "what", "when", "where", "which", "while", "with",
+        "within", "would", "evaluate", "evaluation", "role", "benefits",
+        "limitations", "challenges", "support", "supported",
+    }
+    terms = {
+        word.casefold()
+        for word in re.findall(r"[A-Za-z][A-Za-z0-9-]{2,}", query)
+        if word.casefold() not in stop
+    }
     if not terms:
         return []
     found = []
     for document in load_documents():
-        text = (str(document.get("title", "")) + " " + str(document.get("text", ""))).lower()
-        overlap = sum(term in text for term in terms)
-        if overlap:
+        text = (
+            str(document.get("title", "")) + " " +
+            str(document.get("text", ""))
+        ).casefold()
+        overlap = sum(bool(re.search(r"(?<![a-z0-9])" + re.escape(term) + r"(?![a-z0-9])", text)) for term in terms)
+        # Avoid treating generic word overlap as meaningful source retrieval.
+        if overlap >= 2:
             found.append({
                 **document,
                 "relevance": round(overlap / len(terms), 3),
@@ -24,17 +41,67 @@ def _local_search(query, limit):
     return sorted(found, key=lambda item: item["relevance"], reverse=True)[:limit]
 
 
+def _literature_query(query):
+    """Turn natural-language research tasks into compact Europe PMC queries."""
+    text = re.sub(r"\s+", " ", query.casefold()).strip()
+    groups = []
+
+    concepts = [
+        (("drug-drug interaction", "drug drug interaction", "drug interaction", "ddi"),
+         '"drug-drug interaction" OR "drug interaction" OR DDI'),
+        (("knowledge graph", "knowledge graphs", "biomedical graph"),
+         '"knowledge graph" OR "knowledge graphs" OR "biomedical knowledge graph"'),
+        (("machine learning", "deep learning"),
+         '"machine learning" OR "deep learning"'),
+        (("ontology", "ontologies"),
+         'ontology OR ontologies'),
+        (("drug discovery",), '"drug discovery"'),
+        (("clinical decision support",), '"clinical decision support"'),
+        (("heterogeneous data", "data integration"),
+         '"data integration" OR "heterogeneous data"'),
+        (("prediction", "predictive"), 'prediction OR predictive'),
+    ]
+    for needles, expression in concepts:
+        if any(needle in text for needle in needles):
+            groups.append(f"({expression})")
+
+    if not groups:
+        stop = {
+            "about", "after", "also", "among", "approach", "approaches",
+            "based", "between", "both", "can", "compare", "comparison",
+            "does", "from", "have", "into", "its", "major", "methods",
+            "their", "these", "those", "using", "what", "which", "with",
+            "would", "evaluate", "evaluation", "benefits", "limitations",
+            "challenges", "support", "research", "literature",
+        }
+        words = []
+        for word in re.findall(r"[a-z][a-z0-9-]{2,}", text):
+            if word not in stop and word not in words:
+                words.append(word)
+            if len(words) == 8:
+                break
+        groups = [f'"{word}"' for word in words]
+
+    # OR improves recall for multi-part natural-language research prompts.
+    return " OR ".join(groups[:6]) or query
+
+
 def _europe_pmc_search(query, limit):
-    """Retrieve real biomedical literature abstracts from the public Europe PMC API."""
-    timeout = max(2.0, min(float(os.getenv("STUDENTFLOW_SOURCE_TIMEOUT_SECONDS", "7")), 12.0))
+    """Retrieve biomedical literature abstracts from the public Europe PMC API."""
+    timeout = max(
+        2.0,
+        min(float(os.getenv("STUDENTFLOW_SOURCE_TIMEOUT_SECONDS", "6")), 10.0),
+    )
+    search_query = _literature_query(query)
     response = httpx.get(
         EUROPE_PMC_URL,
         params={
-            "query": query,
+            "query": search_query,
             "format": "json",
             "pageSize": limit,
             "resultType": "core",
-            "sort": "RELEVANCE",
+            "synonym": "true",
+            # Omit sort: Europe PMC defaults to relevance order.
         },
         timeout=timeout,
         headers={"User-Agent": "StudentFlow/1.0 (evidence-first research assistant)"},
@@ -50,14 +117,18 @@ def _europe_pmc_search(query, limit):
         source_name = str(record.get("source") or "MED")
         if not title or not abstract or not source_id:
             continue
-        if source_name == "MED":
-            url = f"https://europepmc.org/article/MED/{source_id}"
-        else:
-            url = f"https://europepmc.org/article/{source_name}/{source_id}"
+        url = f"https://europepmc.org/article/{source_name}/{source_id}"
+        journal = record.get("journalTitle")
+        if not journal:
+            journal = (
+                record.get("journalInfo", {})
+                .get("journal", {})
+                .get("title", "")
+            )
         metadata = " | ".join(
             value for value in (
                 str(record.get("authorString") or "").strip(),
-                str(record.get("journalTitle") or "").strip(),
+                str(journal or "").strip(),
                 str(record.get("pubYear") or "").strip(),
                 str(record.get("doi") or "").strip(),
             ) if value
@@ -66,14 +137,14 @@ def _europe_pmc_search(query, limit):
             "document_id": f"EPMC:{source_name}:{source_id}",
             "title": title,
             "source": url,
-            "text": (f"Publication metadata: {metadata}\nAbstract: {abstract}" if metadata else abstract),
+            "text": f"Publication metadata: {metadata}\nAbstract: {abstract}",
             "relevance": 1.0,
         })
-    return documents
+    return documents, int(payload.get("hitCount") or 0), search_query
 
 
 def search_sources(query, limit=5):
-    """Search local notes and biomedical literature; remote failures never fabricate results."""
+    """Search local notes and external literature; report external failures explicitly."""
     if not isinstance(query, str) or not query.strip():
         raise ValueError("Search query must be non-empty")
     try:
@@ -82,10 +153,23 @@ def search_sources(query, limit=5):
         raise ValueError("Limit must be an integer") from exc
 
     local = _local_search(query, limit)
+    remote = []
+    source_status = {
+        "local": {"ok": True, "returned": len(local)},
+        "europe_pmc": {"ok": False, "returned": 0, "hit_count": 0},
+    }
     try:
-        remote = _europe_pmc_search(query.strip(), limit)
-    except (httpx.HTTPError, ValueError, KeyError, TypeError):
-        remote = []
+        remote, hit_count, used_query = _europe_pmc_search(query.strip(), limit)
+        source_status["europe_pmc"] = {
+            "ok": True,
+            "returned": len(remote),
+            "hit_count": hit_count,
+            "query": used_query,
+        }
+    except (httpx.HTTPError, ValueError, KeyError, TypeError) as exc:
+        source_status["europe_pmc"]["error"] = (
+            f"{type(exc).__name__}: {str(exc)[:300]}"
+        )
 
     combined = []
     seen = set()
@@ -94,11 +178,14 @@ def search_sources(query, limit=5):
         if document_id and document_id not in seen:
             combined.append(document)
             seen.add(document_id)
-    return combined[:limit]
+    return {
+        "items": combined[:limit],
+        "source_status": source_status,
+    }
 
 
 def get_document(document_id):
-    """Retrieve a full source document by its stable ID."""
+    """Retrieve a full local source document by its stable ID."""
     if not isinstance(document_id, str) or not document_id.strip():
         raise ValueError("Document ID must be non-empty")
     return next(
