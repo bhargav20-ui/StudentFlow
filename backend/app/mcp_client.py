@@ -53,15 +53,24 @@ class MCPToolClient:
         if getattr(result, "isError", False):
             raise RuntimeError(f"MCP tool returned an error: {result.content}")
 
-        decoded = None
+        # MCP structured output is the application-facing data channel. Prefer
+        # it when present; retain JSON text parsing for older servers.
+        structured = getattr(result, "structuredContent", None)
+        if structured is None:
+            structured = getattr(result, "structured_content", None)
+        if isinstance(structured, dict):
+            return structured
+        if isinstance(structured, list):
+            return {"items": structured}
+
         for item in getattr(result, "content", []):
             if getattr(item, "type", "") == "text":
                 try:
                     decoded = json.loads(item.text)
+                    return decoded if isinstance(decoded, (dict, list)) else {"text": str(decoded)}
                 except (TypeError, json.JSONDecodeError):
-                    decoded = {"text": item.text}
-                break
-        return decoded if decoded is not None else {}
+                    return {"text": str(getattr(item, "text", ""))}
+        return {}
 
     async def discover_and_call_many(self, build_calls, tasks):
         """Discover a tool and run its independent searches in one MCP session."""
