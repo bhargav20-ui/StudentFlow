@@ -131,10 +131,11 @@ def test_evaluator_handles_supported_and_unsupported_claims():
         {"status": "SUPPORTED", "evidence_ids": ["E001"]},
         {"status": "UNSUPPORTED", "evidence_ids": []},
     ]
-    result = EvaluatorAgent().run("Answer", claims, [])
+    result = EvaluatorAgent().run("Answer [E001]", claims, [{"evidence_id": "E001"}])
     assert result["groundedness"] == 0.5
     assert result["evidence_coverage"] == 0.5
     assert result["hallucination_rate"] == 0.5
+    assert result["citation_validity"] == 1.0
     assert result["task_success"] is True
 
 
@@ -143,4 +144,5 @@ def test_evaluator_marks_empty_claim_metrics_not_applicable():
     assert result["groundedness"] is None
     assert result["evidence_coverage"] is None
     assert result["hallucination_rate"] is None
+    assert result["citation_validity"] is None
     assert result["task_success"] is True
