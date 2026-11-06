@@ -82,8 +82,27 @@ def _literature_query(query):
                 break
         groups = [f'"{word}"' for word in words]
 
-    # OR improves recall for multi-part natural-language research prompts.
-    return " OR ".join(groups[:6]) or query
+    # Anchor method searches to the requested biomedical task. OR is used
+    # among synonymous approaches, while AND connects the task to its method.
+    domain_groups = [
+        group for group in groups
+        if '"drug-drug interaction"' in group
+        or '"drug discovery"' in group
+        or '"clinical decision support"' in group
+    ]
+    method_groups = [
+        group for group in groups
+        if '"knowledge graph"' in group
+        or '"machine learning"' in group
+        or "ontology OR ontologies" in group
+        or '"data integration"' in group
+    ]
+    if domain_groups and method_groups:
+        return f"{domain_groups[0]} AND ({' OR '.join(method_groups)})"
+    if domain_groups:
+        return domain_groups[0]
+    # A topic-only query can broaden recall safely across synonymous concepts.
+    return " OR ".join((method_groups or groups)[:4]) or query
 
 
 def _europe_pmc_search(query, limit):
