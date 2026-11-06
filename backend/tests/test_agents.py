@@ -110,10 +110,10 @@ def test_writer_falls_back_to_verified_claims_when_citations_are_invalid():
     evidence = [{"evidence_id": "E001", "title": "Source", "text": "Evidence"}]
     answer, _ = WriterAgent().run("Question", claims, evidence, model)
     assert answer == (
-        "Evidence-based research synthesis\\n\\n"
-        "Findings\\n"
-        "- Verified statement [E001]\\n\\n"
-        "Sources\\n"
+        "Evidence-based research synthesis\n\n"
+        "Findings\n"
+        "- Verified statement [E001]\n\n"
+        "Sources\n"
         "- [E001] Source — Source link unavailable"
     )
 
@@ -130,7 +130,13 @@ def test_writer_rejects_unknown_citation_ids():
     }]
     evidence = [{"evidence_id": "E001", "title": "Source", "text": "Evidence"}]
     answer, _ = WriterAgent().run("Question", claims, evidence, model)
-    assert answer == "- Verified statement [E001]"
+    assert answer == (
+        "Evidence-based research synthesis\n\n"
+        "Findings\n"
+        "- Verified statement [E001]\n\n"
+        "Sources\n"
+        "- [E001] Source — Source link unavailable"
+    )
 
 
 def test_evaluator_handles_supported_and_unsupported_claims():
