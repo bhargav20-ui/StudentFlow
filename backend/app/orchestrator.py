@@ -130,15 +130,19 @@ class Orchestrator:
         except ModelUnavailable as exc:
             failed = True
             answer = str(exc)
-            warnings.append("Gemini configuration or availability prevented completion.")
-            if getattr(exc, "retryable", False):
+            warnings.append("Gemini could not complete the model request.")
+            # Include failed attempts in metrics too, including non-retryable
+            # quota errors that correctly stop after the first request.
+            usage["attempts"] += int(exc.attempts or 0)
+            usage["retries"] += int(exc.retries or 0)
+            usage["retry_wait_ms"] += int(exc.retry_wait_ms or 0)
+            if exc.status_code == 429 and not exc.retryable:
+                warnings.append("Gemini daily quota was exhausted; automatic retries were skipped.")
+            elif exc.retryable:
                 warnings.append(
                     f"Gemini retry policy exhausted after {exc.attempts} attempts "
                     f"and {exc.retry_wait_ms} ms of backoff."
                 )
-                usage["attempts"] += int(exc.attempts or 0)
-                usage["retries"] += int(exc.retries or 0)
-                usage["retry_wait_ms"] += int(exc.retry_wait_ms or 0)
             record("orchestrator", "failed", str(exc)[:500], started)
         except Exception as exc:
             failed = True
