@@ -32,18 +32,16 @@ function renderMetrics(metrics) {
 }
 function renderResearch(result) {
   lastResult=result;
-  $('research-empty').classList.add('hidden');$('research-results').classList.remove('hidden');
-  $('run-id').textContent=result.run_id || '';$('run-caption').textContent=`${result.mode==='single_agent'?'Single-agent baseline':'Multi-agent + MCP'} · ${new Date(result.created_at||Date.now()).toLocaleString()}`;
-  $('answer-text').textContent=result.answer || 'No answer returned.';
-  $('answer-status').textContent=result.warnings?.length?'Completed with warnings':'Completed';$('answer-status').classList.toggle('warning',!!result.warnings?.length);
-  const warnings=result.warnings||[];$('warnings').classList.toggle('hidden',!warnings.length);$('warnings').textContent=warnings.join('\n');
-  renderMetrics(result.metrics||{});
-  const events=result.events||[];
-  $('workflow-list').innerHTML=events.length?events.map((event,i)=>`<div class="workflow-item"><span class="workflow-line ${esc(event.status||'')}"></span><div><div class="workflow-name">${esc(event.agent||`Stage ${i+1}`)}</div><div class="workflow-message">${esc(event.message||'Stage recorded')}</div></div><div class="workflow-time">${number(event.latency_ms,' ms')}</div></div>`).join(''):'<p class="muted">No workflow trace was recorded.</p>';
-  const evidence=result.evidence||[];$('evidence-count').textContent=`${evidence.length} sources`;
-  $('evidence-list').innerHTML=evidence.length?evidence.map(item=>`<div class="evidence-item"><div class="evidence-title">${esc(item.title||item.document_id)}</div><div class="evidence-meta">${esc(item.evidence_id||'')} · ${esc(item.document_id||'')} · relevance ${esc(item.relevance??'—')}</div><div class="evidence-text">${esc(item.text||'')}</div></div>`).join(''):'<p class="muted">No relevant evidence was retrieved. The system should not guess missing facts.</p>';
-  const claims=result.claims||[];$('claim-count').textContent=`${claims.length} claims`;
-  $('claims-list').innerHTML=claims.length?claims.map(claim=>`<div class="claim-item"><div><div class="claim-text">${esc(claim.statement||'Claim')}</div><div class="claim-reason">${esc(claim.reason||'')} ${claim.evidence_ids?.length?`· Evidence: ${esc(claim.evidence_ids.join(', '))}`:'· No evidence IDs'}</div></div><span class="claim-status ${esc(String(claim.status||'unsupported').toLowerCase())}">${esc(claim.status||'UNASSESSED')}</span></div>`).join(''):'<p class="muted">No structured claims were returned for verification.</p>';
+  $('research-empty').classList.add('hidden');
+  $('research-results').classList.remove('hidden');
+  $('run-id').textContent='';
+  $('run-caption').textContent=new Date(result.created_at||Date.now()).toLocaleString();
+  $('answer-text').textContent=result.answer || 'No research output was returned.';
+  $('answer-status').textContent=result.warnings?.length ? 'Completed with warnings' : 'Completed';
+  $('answer-status').classList.toggle('warning',!!result.warnings?.length);
+  const warnings=result.warnings||[];
+  $('warnings').classList.toggle('hidden',!warnings.length);
+  $('warnings').textContent=warnings.join('\\n');
 }
 async function checkHealth() {
   try { const h=await api('/health');$('api-dot').classList.add('good');$('api-status').textContent='API connected';$('sidebar-status').textContent='API connected'; }
@@ -54,7 +52,6 @@ function goPage(page) {
   document.querySelectorAll('.page').forEach(p=>p.classList.toggle('active',p.id===`page-${page}`));
   $('page-title').textContent=({research:'Research',evaluation:'Evaluation',documents:'Documents & MCP'})[page]||'Research';
   if(page==='evaluation'){loadMetrics();}
-  if(page==='documents'){loadDocuments();loadTools();}
 }
 document.querySelectorAll('.nav-item').forEach(button=>button.addEventListener('click',()=>goPage(button.dataset.page)));
 $('run-button').addEventListener('click',async()=>{
@@ -71,15 +68,6 @@ async function loadMetrics() {
     container.innerHTML=[metricCard('Recorded runs',number(data.run_count),'Completed workflow logs'),metricCard('Task success',percent(data.task_success_rate),'Average recorded run outcome'),metricCard('Mean groundedness',percent(data.mean_groundedness),'From recorded claim checks'),metricCard('Mean citation validity',percent(data.mean_citation_validity),'Answer citations resolving to evidence'),metricCard('Pipeline success',percent(data.pipeline_execution_success_rate),'Runs without agent or MCP execution failure'),metricCard('Retrieval success',percent(data.retrieval_success_rate),'Runs that returned source evidence'),metricCard('Agent completion',percent(data.mean_agent_completion_rate),'Expected stages completed per run'),metricCard('Mean unsupported claims',percent(data.mean_hallucination_rate),'Unsupported / contradicted'),metricCard('MCP tool success',percent(data.tool_success_rate),'Successful calls / total calls'),metricCard('Mean latency',number(data.mean_latency_ms,' ms'),'End-to-end time'),metricCard('P95 latency',number(data.p95_latency_ms,' ms'),'95th-percentile recorded run'),metricCard('Mean tokens',number(data.mean_tokens),'Model-reported usage'),metricCard('Mean model retries',number(data.mean_model_retries),'Additional attempts per run')].join('');
   } catch(e){container.innerHTML=`<div class="loading-card">Could not load metrics: ${esc(e.message)}</div>`;}
 }
-$('compare-button').addEventListener('click',async()=>{
-  const question=$('compare-question').value.trim();if(question.length<5){showToast('Enter a question to compare.',true);return;}
-  const button=$('compare-button');setBusy(button,true,'Running both approaches…');$('compare-output').textContent='The single-agent baseline and multi-agent workflow will each run once.';
-  try{const result=await api('/comparison',{method:'POST',body:JSON.stringify({question})});const b=result.baseline.metrics||{},m=result.multi_agent.metrics||{};
-    const rows=[['Groundedness',percent(b.groundedness),percent(m.groundedness)],['Evidence coverage',percent(b.evidence_coverage),percent(m.evidence_coverage)],['Unsupported claims',percent(b.hallucination_rate),percent(m.hallucination_rate)],['Latency',number(b.latency_ms,' ms'),number(m.latency_ms,' ms')],['Tokens',number(b.total_tokens),number(m.total_tokens)],['Estimated cost',money(b.estimated_cost_usd),money(m.estimated_cost_usd)]];
-    $('compare-output').innerHTML=`<div class="table-wrap"><table><thead><tr><th>Metric</th><th>Single-agent baseline</th><th>Multi-agent + MCP</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${esc(r[0])}</td><td>${esc(r[1])}</td><td>${esc(r[2])}</td></tr>`).join('')}</tbody></table></div><p class="muted">This is one measured comparison, not a statistically reliable conclusion. Repeat across the same test set before claiming improvement.</p><button id="show-multi-result" class="secondary">View multi-agent run</button>`;
-    $('show-multi-result').addEventListener('click',()=>{renderResearch(result.multi_agent);goPage('research');});await loadMetrics();showToast('Comparison completed.');
-  }catch(e){$('compare-output').textContent=`Comparison failed: ${e.message}`;showToast(e.message,true);}finally{setBusy(button,false);}
-});
 async function loadDocuments(){
   try{const data=await api('/documents');$('document-count').textContent=`${data.count} sources`;$('document-list').innerHTML=(data.documents||[]).map(doc=>`<div class="document-item"><div class="document-title">${esc(doc.title)}</div><div class="document-meta">${esc(doc.document_id)} · ${esc(doc.source||'source not specified')}</div><div class="evidence-text">${esc(doc.text||'')}</div></div>`).join('')||'<p class="muted">No documents in the knowledge base.</p>';}
   catch(e){$('document-list').textContent=e.message;}
