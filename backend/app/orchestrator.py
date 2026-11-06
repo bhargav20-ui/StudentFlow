@@ -166,7 +166,7 @@ class Orchestrator:
         )
         completed_agents = {
             event["agent"] for event in events
-            if event.get("status") in {"completed", "warning"}
+            if event.get("status") == "completed"
         }
         tool_execution_ok = all(item.get("success") for item in tool_log)
         metrics = {
