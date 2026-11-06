@@ -4,6 +4,8 @@ import os
 import re
 import time
 
+import httpx
+
 from .config import (
     GEMINI_API_KEY,
     GEMINI_MODEL,
@@ -49,7 +51,12 @@ def is_daily_quota_error(exc):
 
 
 def is_retryable_gemini_error(exc):
-    """Return True only for transient Gemini/API availability errors."""
+    """Return True for transient Gemini API and HTTP transport failures."""
+    # The google-genai SDK's retry predicate may not retry httpx timeout
+    # exceptions, so handle them in StudentFlow's observable retry policy.
+    if isinstance(exc, httpx.TimeoutException):
+        return True
+
     for attr in ("code", "status_code", "http_status"):
         value = getattr(exc, attr, None)
         try:
