@@ -31,9 +31,15 @@ def save_run(result):
         if not exists: w.writeheader()
         w.writerow(row)
 def list_runs():
-    out=[]
-    for p in sorted(RESULTS_DIR.glob("*.json"),reverse=True):
-        try: out.append(json.loads(p.read_text(encoding="utf-8")))
-        except Exception: pass
+    out = []
+    for path in RESULTS_DIR.glob("*.json"):
+        try:
+            item = json.loads(path.read_text(encoding="utf-8"))
+            if isinstance(item, dict):
+                out.append(item)
+        except Exception:
+            continue
+    # UUID filenames do not represent chronology; sort by the actual run timestamp.
+    out.sort(key=lambda item: item.get("created_at", ""), reverse=True)
     return out
 def utc_now(): return datetime.now(timezone.utc).isoformat()
