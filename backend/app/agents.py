@@ -235,22 +235,53 @@ class WriterAgent:
 class EvaluatorAgent:
     def run(self, answer, claims, evidence):
         total = len(claims)
+        valid_evidence_ids = {
+            item.get("evidence_id") for item in evidence
+            if isinstance(item, dict) and item.get("evidence_id")
+        }
+
+        def has_valid_evidence(claim):
+            cited = claim.get("evidence_ids") or []
+            return any(value in valid_evidence_ids for value in cited)
+
         supported = sum(
-            claim["status"] == "SUPPORTED" and bool(claim["evidence_ids"])
+            claim.get("status") == "SUPPORTED" and has_valid_evidence(claim)
             for claim in claims
         )
-        linked = sum(bool(claim["evidence_ids"]) for claim in claims)
+        linked = sum(has_valid_evidence(claim) for claim in claims)
         unsupported = sum(
-            claim["status"] in {"UNSUPPORTED", "CONTRADICTED"} or not claim["evidence_ids"]
+            claim.get("status") in {"UNSUPPORTED", "CONTRADICTED"}
+            or not has_valid_evidence(claim)
             for claim in claims
         )
-        insufficient = any(marker in answer.casefold() for marker in (
-            "insufficient evidence", "cannot reliably answer", "not enough verified evidence",
-            "do not contain enough verified",
+
+        cited_ids = re.findall(r"\[\s*(E\d{3})\s*\]", answer or "")
+        citation_validity = (
+            round(
+                sum(value in valid_evidence_ids for value in cited_ids) / len(cited_ids),
+                4,
+            )
+            if cited_ids
+            else (0.0 if total else None)
+        )
+        insufficient = any(marker in (answer or "").casefold() for marker in (
+            "insufficient evidence", "cannot reliably answer",
+            "not enough verified evidence", "do not contain enough verified",
         ))
+        task_success = bool(
+            (answer or "").strip()
+            and (
+                insufficient
+                or (
+                    supported > 0
+                    and citation_validity == 1.0
+                )
+            )
+        )
         return {
             "groundedness": round(supported / total, 4) if total else None,
             "evidence_coverage": round(linked / total, 4) if total else None,
             "hallucination_rate": round(unsupported / total, 4) if total else None,
-            "task_success": bool(answer.strip() and (supported > 0 or insufficient)),
+            "citation_validity": citation_validity,
+            "task_success": task_success,
         }
