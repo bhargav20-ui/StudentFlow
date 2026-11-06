@@ -24,16 +24,9 @@
           <textarea id="question" rows="3" placeholder="Example: Why is MCP useful in a multi-agent research system? Use evidence from the available documents."></textarea>
           <div class="query-footer"><span class="hint">Answers are limited to the available evidence.</span><button id="run-button" class="primary">Run research <span>→</span></button></div>
         </div>
-        <div id="research-empty" class="empty-state"><div class="empty-symbol">✳</div><h3>Your research results will appear here</h3><p>Run a question to see the agent workflow, final answer, evidence, and claim checks.</p></div>
+        <div id="research-empty" class="empty-state"><div class="empty-symbol">✳</div><h3>Your research output will appear here</h3><p>Enter a question to generate an evidence-grounded research answer.</p></div>
         <div id="research-results" class="hidden">
           <div class="section-heading"><div><h2>Research result</h2><p id="run-caption">Workflow completed</p></div><span class="run-id" id="run-id"></span></div>
-          <div class="metric-grid" id="run-metrics"></div>
-          <div class="result-card"><div class="card-heading"><div><span class="step-tag">01</span><h3>Answer</h3></div><span id="answer-status" class="status-pill">Complete</span></div><div id="answer-text" class="answer-text"></div><div id="warnings" class="warnings hidden"></div></div>
-          <div class="two-col">
-            <div class="result-card"><div class="card-heading"><div><span class="step-tag">02</span><h3>Workflow trace</h3></div></div><div id="workflow-list" class="workflow-list"></div></div>
-            <div class="result-card"><div class="card-heading"><div><span class="step-tag">03</span><h3>Evidence retrieved</h3></div><span id="evidence-count" class="count-pill">0</span></div><div id="evidence-list" class="evidence-list"></div></div>
-          </div>
-          <div class="result-card"><div class="card-heading"><div><span class="step-tag">04</span><h3>Claim verification</h3></div><span id="claim-count" class="count-pill">0 claims</span></div><div id="claims-list" class="claims-list"></div></div>
         </div>
       </section>
       <section class="page" id="page-evaluation">
