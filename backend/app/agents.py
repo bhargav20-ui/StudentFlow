@@ -76,7 +76,7 @@ class ResearcherAgent:
         arguments = {query_field: task}
         for key in self.LIMIT_NAMES:
             if key in properties:
-                arguments[key] = min(5, max(1, int(os.getenv("STUDENTFLOW_RESULTS_PER_TASK", "3"))))
+                arguments[key] = min(10, max(1, int(os.getenv("STUDENTFLOW_RESULTS_PER_TASK", "9"))))
                 break
         return arguments
 
@@ -101,17 +101,23 @@ class ResearcherAgent:
                 self._arguments(tool, query_field, task) for task in search_tasks
             ]
 
+        # One combined literature query is faster and gives the source API the
+        # full topic context. The query builder expands recognised synonyms.
+        combined_task = " ".join(dict.fromkeys(
+            re.sub(r"\\s+", " ", task).strip() for task in tasks if task.strip()
+        ))
+        search_tasks = [combined_task or " ".join(tasks[:3])]
         try:
             timeout_seconds = max(
-                3.0, min(float(os.getenv("STUDENTFLOW_MCP_TIMEOUT_SECONDS", "15")), 60.0)
+                3.0, min(float(os.getenv("STUDENTFLOW_MCP_TIMEOUT_SECONDS", "9")), 15.0)
             )
             tool_name, responses = asyncio.run(
                 asyncio.wait_for(
-                    mcp.discover_and_call_many(build_calls, tasks),
+                    mcp.discover_and_call_many(build_calls, search_tasks),
                     timeout=timeout_seconds,
                 )
             )
-            for task, result in zip(tasks, responses):
+            for task, result in zip(search_tasks, responses):
                 items = self._items(result)
                 source_status = result.get("source_status", {}) if isinstance(result, dict) else {}
                 remote_status = source_status.get("europe_pmc", {}) if isinstance(source_status, dict) else {}
