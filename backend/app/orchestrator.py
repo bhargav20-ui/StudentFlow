@@ -103,6 +103,19 @@ class Orchestrator:
                 )
                 if not retrieval_ok:
                     warnings.append("No relevant evidence was retrieved; downstream agents will not invent facts.")
+                    # Surface external provider diagnostics instead of hiding them
+                    # in persisted tool logs; this makes the next failed run actionable.
+                    for item in tool_log:
+                        status = item.get("source_status") or {}
+                        provider = status.get("europe_pmc") or {}
+                        error = provider.get("error") or item.get("error")
+                        if error:
+                            warnings.append(f"Literature source error: {str(error)[:300]}")
+                        elif provider and provider.get("ok") and not provider.get("returned"):
+                            warnings.append(
+                                f"Europe PMC responded successfully but returned no records "
+                                f"(query: {provider.get('query', 'not recorded')})."
+                            )
 
                 tick = time.perf_counter()
                 claims, result = self.verifier.run(question, evidence, self.model)
